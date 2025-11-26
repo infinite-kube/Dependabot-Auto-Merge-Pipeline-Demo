@@ -38,8 +38,8 @@ module.exports = {
   },
   
   // Setup files
-  setupFiles: ['<rootDir>/test/setup.js'],
-  setupFilesAfterEnv: ['<rootDir>/test/setupAfterEnv.js'],
+  setupFiles: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setupAfterEnv.js'],
   
   // Transform files
   transform: {
