@@ -13,17 +13,21 @@ jobs:
         run: |
           # Logic to determine update type
           # Set labels based on semver changes
-          
+      
   auto-approve:
     needs: categorize
+    runs-on: ubuntu-latest  # <--- FIXED: Added missing property
     if: contains(github.event.pull_request.labels.*.name, 'patch') || 
         contains(github.event.pull_request.labels.*.name, 'minor')
     steps:
       - name: Auto-approve
         uses: hmarr/auto-approve-action@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}" # Generally required for this action
         
   trigger-jenkins:
     needs: auto-approve
+    runs-on: ubuntu-latest  # <--- FIXED: Added missing property
     steps:
       - name: Trigger Jenkins Pipeline
         run: |
