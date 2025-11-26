@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  # Node.js application
+  node-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: node-app
+    container_name: dependabot-demo-node
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - JWT_SECRET=demo-secret-key
+      - REDIS_HOST=redis
+      - DB_HOST=postgres
+      - DB_NAME=demo
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - MONGO_URI=mongodb://mongo:27017/demo
+    depends_on:
+      - redis
+      - postgres
+      - mongo
+    networks:
+      - demo-network
+    volumes:
+      - ./src:/app/src
+      - node_modules:/app/node_modules
+    restart: unless-stopped
+
+  # Python application
+  python-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: python-app
+    container_name: dependabot-demo-python
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=src/app.py
+      - SECRET_KEY=demo-secret-key
+      - REDIS_HOST=redis
+      - DB_HOST=postgres
+      - DB_NAME=demo
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - MONGO_URI=mongodb://mongo:27017/demo
+    depends_on:
+      - redis
+      - postgres
+      - mongo
+    networks:
+      - demo-network
+    volumes:
+      - ./src:/app/src
+    command: python src/app.py
+    restart: unless-stopped
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dependabot-demo-postgres
+    environment:
+      - POSTGRES_DB=demo
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: dependabot-demo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB
+  mongo:
+    image: mongo:6
+    container_name: dependabot-demo-mongo
+    environment:
+      - MONGO_INITDB_DATABASE=demo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - demo-network
+    restart: unless-stopped
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Jenkins for CI/CD (optional for local testing)
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: dependabot-demo-jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      - JENKINS_OPTS=--prefix=/jenkins
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - demo-network
+    restart: unless-stopped
+    user: root
+
+  # Prometheus for monitoring (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dependabot-demo-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - demo-network
+    restart: unless-stopped
+
+  # Grafana for visualization (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dependabot-demo-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - demo-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  demo-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongo_data:
+  jenkins_data:
+  prometheus_data:
+  grafana_data:
+  node_modules:
