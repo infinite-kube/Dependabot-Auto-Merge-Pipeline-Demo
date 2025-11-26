@@ -1,0 +1,259 @@
+name: PR Labeler
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label-pr:
+    name: Categorize and Label PR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Detect PR Category
+        id: categorize
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          
+          # Initialize labels array
+          LABELS=""
+          
+          # Check if it's a Dependabot PR
+          if [ "$PR_AUTHOR" == "dependabot[bot]" ]; then
+            LABELS="${LABELS},dependabot"
+            
+            # Parse version change for semantic versioning
+            if echo "$PR_TITLE" | grep -qE "from [0-9]+\.[0-9]+\.[0-9]+ to [0-9]+\.[0-9]+\.[0-9]+"; then
+              OLD_VERSION=$(echo "$PR_TITLE" | sed -n 's/.*from \([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
+              NEW_VERSION=$(echo "$PR_TITLE" | sed -n 's/.*to \([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
+              
+              OLD_MAJOR=$(echo $OLD_VERSION | cut -d. -f1)
+              OLD_MINOR=$(echo $OLD_VERSION | cut -d. -f2)
+              NEW_MAJOR=$(echo $NEW_VERSION | cut -d. -f1)
+              NEW_MINOR=$(echo $NEW_VERSION | cut -d. -f2)
+              
+              if [ "$OLD_MAJOR" != "$NEW_MAJOR" ]; then
+                LABELS="${LABELS},major-update,breaking-change"
+              elif [ "$OLD_MINOR" != "$NEW_MINOR" ]; then
+                LABELS="${LABELS},minor-update"
+              else
+                LABELS="${LABELS},patch-update"
+              fi
+            fi
+            
+            # Check for security updates
+            if echo "$PR_TITLE $PR_BODY" | grep -qi "security\|vulnerability\|CVE-\|GHSA-"; then
+              LABELS="${LABELS},security,high-priority"
+            fi
+            
+            # Detect package ecosystem
+            if echo "$PR_TITLE" | grep -qi "package\.json\|npm\|yarn\|node"; then
+              LABELS="${LABELS},javascript,npm"
+            elif echo "$PR_TITLE" | grep -qi "requirements\.txt\|setup\.py\|pipfile\|poetry"; then
+              LABELS="${LABELS},python,pip"
+            elif echo "$PR_TITLE" | grep -qi "pom\.xml\|build\.gradle\|\.jar"; then
+              LABELS="${LABELS},java,maven"
+            elif echo "$PR_TITLE" | grep -qi "gemfile\|\.gem"; then
+              LABELS="${LABELS},ruby,bundler"
+            elif echo "$PR_TITLE" | grep -qi "go\.mod\|go\.sum"; then
+              LABELS="${LABELS},go,gomod"
+            elif echo "$PR_TITLE" | grep -qi "cargo\.toml\|cargo\.lock"; then
+              LABELS="${LABELS},rust,cargo"
+            elif echo "$PR_TITLE" | grep -qi "dockerfile\|docker-compose"; then
+              LABELS="${LABELS},docker,infrastructure"
+            elif echo "$PR_TITLE" | grep -qi "\.github/workflows\|action\.yml"; then
+              LABELS="${LABELS},github-actions,ci-cd"
+            fi
+            
+            # Detect dependency type
+            if echo "$PR_BODY" | grep -qi "devDependencies\|development"; then
+              LABELS="${LABELS},dev-dependency"
+            elif echo "$PR_BODY" | grep -qi "peerDependencies"; then
+              LABELS="${LABELS},peer-dependency"
+            else
+              LABELS="${LABELS},production-dependency"
+            fi
+            
+            # Risk assessment
+            if echo "$LABELS" | grep -q "major-update\|breaking-change"; then
+              LABELS="${LABELS},high-risk"
+            elif echo "$LABELS" | grep -q "security"; then
+              LABELS="${LABELS},medium-risk"
+            elif echo "$LABELS" | grep -q "minor-update"; then
+              LABELS="${LABELS},low-risk"
+            else
+              LABELS="${LABELS},minimal-risk"
+            fi
+            
+            # Auto-merge eligibility
+            if echo "$LABELS" | grep -q "patch-update\|minimal-risk"; then
+              LABELS="${LABELS},auto-merge-candidate"
+            elif echo "$LABELS" | grep -q "minor-update" && echo "$LABELS" | grep -q "dev-dependency"; then
+              LABELS="${LABELS},auto-merge-candidate"
+            fi
+          fi
+          
+          # Check for documentation updates
+          if echo "$PR_TITLE $PR_BODY" | grep -qi "readme\|docs\|documentation\|changelog"; then
+            LABELS="${LABELS},documentation"
+          fi
+          
+          # Check for test updates
+          if echo "$PR_TITLE $PR_BODY" | grep -qi "test\|spec\|jest\|mocha\|pytest\|junit"; then
+            LABELS="${LABELS},tests"
+          fi
+          
+          # Check for CI/CD updates
+          if echo "$PR_TITLE $PR_BODY" | grep -qi "ci\|cd\|pipeline\|workflow\|jenkins\|travis\|circle"; then
+            LABELS="${LABELS},ci-cd"
+          fi
+          
+          # Clean up labels string
+          LABELS=$(echo $LABELS | sed 's/^,//' | sed 's/,$//')
+          
+          echo "labels=${LABELS}" >> $GITHUB_OUTPUT
+      
+      - name: Apply Labels
+        if: steps.categorize.outputs.labels != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          LABELS="${{ steps.categorize.outputs.labels }}"
+          
+          # Convert comma-separated list to JSON array
+          LABEL_ARRAY=$(echo $LABELS | sed 's/,/","/g' | sed 's/^/["/' | sed 's/$/"]/')
+          
+          # Apply labels using GitHub CLI
+          echo "Applying labels: $LABELS"
+          for label in $(echo $LABELS | tr ',' ' '); do
+            gh label create "$label" --description "Auto-generated label" --color "$(openssl rand -hex 3)" 2>/dev/null || true
+            gh pr edit $PR_NUMBER --add-label "$label"
+          done
+      
+      - name: Size Labeler
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          ADDITIONS="${{ github.event.pull_request.additions }}"
+          DELETIONS="${{ github.event.pull_request.deletions }}"
+          
+          TOTAL_CHANGES=$((ADDITIONS + DELETIONS))
+          
+          # Determine size label
+          if [ $TOTAL_CHANGES -le 10 ]; then
+            SIZE_LABEL="size/XS"
+          elif [ $TOTAL_CHANGES -le 30 ]; then
+            SIZE_LABEL="size/S"
+          elif [ $TOTAL_CHANGES -le 100 ]; then
+            SIZE_LABEL="size/M"
+          elif [ $TOTAL_CHANGES -le 500 ]; then
+            SIZE_LABEL="size/L"
+          elif [ $TOTAL_CHANGES -le 1000 ]; then
+            SIZE_LABEL="size/XL"
+          else
+            SIZE_LABEL="size/XXL"
+          fi
+          
+          # Create and apply size label
+          gh label create "$SIZE_LABEL" --description "PR size indicator" --color "0366d6" 2>/dev/null || true
+          gh pr edit $PR_NUMBER --add-label "$SIZE_LABEL"
+      
+      - name: Priority Labeler
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          EXISTING_LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name' | tr '\n' ' ')
+          
+          # Determine priority based on existing labels
+          PRIORITY=""
+          if echo "$EXISTING_LABELS" | grep -q "security\|vulnerability"; then
+            PRIORITY="P1-critical"
+          elif echo "$EXISTING_LABELS" | grep -q "breaking-change\|major-update"; then
+            PRIORITY="P2-high"
+          elif echo "$EXISTING_LABELS" | grep -q "production-dependency\|minor-update"; then
+            PRIORITY="P3-medium"
+          elif echo "$EXISTING_LABELS" | grep -q "dev-dependency\|patch-update"; then
+            PRIORITY="P4-low"
+          else
+            PRIORITY="P5-minimal"
+          fi
+          
+          # Create and apply priority label
+          if [ -n "$PRIORITY" ]; then
+            gh label create "$PRIORITY" --description "Priority level" --color "ff0000" 2>/dev/null || true
+            gh pr edit $PR_NUMBER --add-label "$PRIORITY"
+          fi
+      
+      - name: Add Review Status Label
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          EXISTING_LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name' | tr '\n' ' ')
+          
+          # Determine initial review status
+          if echo "$EXISTING_LABELS" | grep -q "auto-merge-candidate"; then
+            gh label create "review-status/auto-review" --description "Eligible for automated review" --color "0e8a16" 2>/dev/null || true
+            gh pr edit $PR_NUMBER --add-label "review-status/auto-review"
+          elif echo "$EXISTING_LABELS" | grep -q "high-risk\|breaking-change"; then
+            gh label create "review-status/needs-manual-review" --description "Requires manual review" --color "d73a4a" 2>/dev/null || true
+            gh pr edit $PR_NUMBER --add-label "review-status/needs-manual-review"
+          else
+            gh label create "review-status/pending" --description "Review pending" --color "fbca04" 2>/dev/null || true
+            gh pr edit $PR_NUMBER --add-label "review-status/pending"
+          fi
+      
+      - name: Post Label Summary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          LABELS="${{ steps.categorize.outputs.labels }}"
+          
+          # Only post for Dependabot PRs
+          if [ "${{ github.event.pull_request.user.login }}" == "dependabot[bot]" ]; then
+            # Get all labels for this PR
+            ALL_LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name' | tr '\n' ', ' | sed 's/,$//')
+            
+            # Create summary comment
+            COMMENT="## 🏷️ PR Labels Applied
+            
+Labels have been automatically applied to categorize this PR:
+
+**Categories:** $ALL_LABELS
+
+### Label Meanings:
+- **Update Size**: Indicates the version change type (patch/minor/major)
+- **Risk Level**: Assessment of potential impact (minimal/low/medium/high)
+- **Priority**: Urgency of review/merge (P1-P5)
+- **Review Status**: Current review requirements
+- **Auto-merge Eligibility**: Whether this PR can be automatically merged
+
+Based on these labels, the appropriate workflow will be triggered."
+            
+            # Check if we already commented
+            EXISTING_COMMENT=$(gh pr view $PR_NUMBER --json comments --jq '.comments[] | select(.author.login == "github-actions[bot]") | select(.body | contains("PR Labels Applied")) | .id' | head -n1)
+            
+            if [ -n "$EXISTING_COMMENT" ]; then
+              # Update existing comment
+              echo "Updating existing label comment"
+            else
+              # Post new comment
+              gh pr comment $PR_NUMBER --body "$COMMENT"
+            fi
+          fi
