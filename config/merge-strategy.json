@@ -1,0 +1,192 @@
+{
+  "mergeStrategies": {
+    "default": {
+      "autoMergeEnabled": true,
+      "requireTests": true,
+      "requireSecurityScan": true,
+      "requireApproval": false,
+      "mergeMethod": "squash"
+    },
+    "patch": {
+      "autoMergeEnabled": true,
+      "requireTests": true,
+      "requireSecurityScan": false,
+      "requireApproval": false,
+      "mergeMethod": "squash",
+      "maxAutoMergePerDay": 20,
+      "conditions": {
+        "maxFilesChanged": 10,
+        "maxLinesChanged": 100,
+        "excludedFiles": ["package-lock.json", "yarn.lock"],
+        "mustPassChecks": ["build", "test", "lint"]
+      }
+    },
+    "minor": {
+      "autoMergeEnabled": true,
+      "requireTests": true,
+      "requireSecurityScan": true,
+      "requireApproval": false,
+      "mergeMethod": "squash",
+      "maxAutoMergePerDay": 10,
+      "conditions": {
+        "maxFilesChanged": 50,
+        "maxLinesChanged": 500,
+        "excludedPackages": [],
+        "mustPassChecks": ["build", "test", "lint", "security-scan"],
+        "deploymentStrategy": "canary"
+      }
+    },
+    "major": {
+      "autoMergeEnabled": false,
+      "requireTests": true,
+      "requireSecurityScan": true,
+      "requireApproval": true,
+      "mergeMethod": "merge",
+      "maxAutoMergePerDay": 0,
+      "conditions": {
+        "requireManualReview": true,
+        "requireChangelogUpdate": true,
+        "requireMigrationGuide": true,
+        "mustPassChecks": ["build", "test", "integration-test", "e2e-test", "security-scan", "performance-test"],
+        "approvalCount": 2,
+        "deploymentStrategy": "blue-green"
+      }
+    },
+    "security": {
+      "autoMergeEnabled": true,
+      "requireTests": true,
+      "requireSecurityScan": true,
+      "requireApproval": false,
+      "mergeMethod": "squash",
+      "priority": "high",
+      "fastTrack": true,
+      "conditions": {
+        "bypassOtherChecks": true,
+        "immediateDeployment": true,
+        "notifySecurityTeam": true,
+        "mustPassChecks": ["security-scan"],
+        "deploymentStrategy": "immediate"
+      }
+    }
+  },
+  "packageOverrides": {
+    "react": {
+      "minor": {
+        "autoMergeEnabled": false,
+        "requireApproval": true
+      },
+      "major": {
+        "requireApproval": true,
+        "approvalCount": 3
+      }
+    },
+    "express": {
+      "patch": {
+        "autoMergeEnabled": true
+      },
+      "minor": {
+        "autoMergeEnabled": false
+      }
+    },
+    "lodash": {
+      "patch": {
+        "autoMergeEnabled": true,
+        "fastTrack": true
+      }
+    },
+    "@types/*": {
+      "patch": {
+        "autoMergeEnabled": true,
+        "requireTests": false
+      },
+      "minor": {
+        "autoMergeEnabled": true,
+        "requireTests": false
+      }
+    },
+    "eslint*": {
+      "patch": {
+        "autoMergeEnabled": true
+      },
+      "minor": {
+        "autoMergeEnabled": true
+      },
+      "major": {
+        "autoMergeEnabled": false,
+        "requireMigrationGuide": true
+      }
+    }
+  },
+  "ecosystemSettings": {
+    "npm": {
+      "enableGrouping": true,
+      "groupingStrategy": "weekly",
+      "maxOpenPRs": 10,
+      "securityUpdates": "immediate"
+    },
+    "pip": {
+      "enableGrouping": true,
+      "groupingStrategy": "weekly",
+      "maxOpenPRs": 5,
+      "securityUpdates": "immediate"
+    },
+    "maven": {
+      "enableGrouping": false,
+      "maxOpenPRs": 5,
+      "securityUpdates": "immediate"
+    },
+    "docker": {
+      "enableGrouping": false,
+      "maxOpenPRs": 3,
+      "securityUpdates": "immediate",
+      "requireManualReview": true
+    },
+    "github-actions": {
+      "enableGrouping": true,
+      "groupingStrategy": "monthly",
+      "maxOpenPRs": 5,
+      "autoMergeEnabled": true
+    }
+  },
+  "globalSettings": {
+    "workingHours": {
+      "enabled": true,
+      "timezone": "America/New_York",
+      "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+      "startHour": 9,
+      "endHour": 17
+    },
+    "blackoutPeriods": [
+      {
+        "name": "Holiday Season",
+        "startDate": "2024-12-20",
+        "endDate": "2025-01-03",
+        "allowSecurityUpdates": true
+      },
+      {
+        "name": "Company Conf",
+        "startDate": "2024-06-15",
+        "endDate": "2024-06-20",
+        "allowSecurityUpdates": true
+      }
+    ],
+    "notifications": {
+      "slack": {
+        "enabled": true,
+        "channel": "#dependabot-updates",
+        "notifyOn": ["security", "major", "merge-failure", "deployment-failure"]
+      },
+      "email": {
+        "enabled": true,
+        "recipients": ["devops@company.com"],
+        "notifyOn": ["security", "major", "deployment-failure"]
+      }
+    },
+    "metrics": {
+      "trackAutoMergeRate": true,
+      "trackMeanTimeToMerge": true,
+      "trackFailureRate": true,
+      "dashboardUrl": "https://grafana.company.com/dependabot"
+    }
+  }
+}
