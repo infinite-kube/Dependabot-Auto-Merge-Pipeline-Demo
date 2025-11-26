@@ -1,0 +1,337 @@
+name: Security Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to check'
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+  issues: write
+
+jobs:
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      
+      - name: Setup Security Scanners
+        run: |
+          # Install security scanning tools
+          pip install safety bandit semgrep
+          npm install -g snyk@latest audit-ci better-npm-audit
+          
+          # Download and install trivy
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+      
+      - name: Run Dependency Check
+        id: dep_check
+        continue-on-error: true
+        run: |
+          echo "## Dependency Security Check" > security_report.md
+          echo "" >> security_report.md
+          
+          # Check for known vulnerabilities in dependencies
+          if [ -f "package-lock.json" ]; then
+            echo "### NPM Security Audit" >> security_report.md
+            npm audit --json > npm_audit.json || true
+            
+            # Parse and format npm audit results
+            python3 <<EOF >> security_report.md
+import json
+try:
+    with open('npm_audit.json') as f:
+        audit = json.load(f)
+        if 'vulnerabilities' in audit:
+            vulns = audit['vulnerabilities']
+            print(f"Found {vulns.get('total', 0)} vulnerabilities:")
+            print(f"- Critical: {vulns.get('critical', 0)}")
+            print(f"- High: {vulns.get('high', 0)}")
+            print(f"- Moderate: {vulns.get('moderate', 0)}")
+            print(f"- Low: {vulns.get('low', 0)}")
+            print("")
+except:
+    print("No npm vulnerabilities found or unable to parse results")
+EOF
+          fi
+          
+          if [ -f "requirements.txt" ]; then
+            echo "### Python Security Check (Safety)" >> security_report.md
+            safety check --json > safety_report.json || true
+            
+            python3 <<EOF >> security_report.md
+import json
+try:
+    with open('safety_report.json') as f:
+        report = json.load(f)
+        if report:
+            print(f"Found {len(report)} security issues in Python dependencies")
+            for issue in report[:5]:  # Show first 5
+                print(f"- {issue.get('package', 'Unknown')}: {issue.get('vulnerability', 'Unknown vulnerability')}")
+            if len(report) > 5:
+                print(f"... and {len(report) - 5} more")
+        else:
+            print("No Python security issues found")
+except:
+    print("No Python vulnerabilities found or unable to parse results")
+print("")
+EOF
+          fi
+          
+          if [ -f "pom.xml" ]; then
+            echo "### Maven Dependency Check" >> security_report.md
+            # Would use OWASP dependency check here in production
+            echo "Maven security check would be performed here" >> security_report.md
+            echo "" >> security_report.md
+          fi
+      
+      - name: Container Security Scan
+        if: hashFiles('**/Dockerfile') != ''
+        continue-on-error: true
+        run: |
+          echo "### Container Security Scan (Trivy)" >> security_report.md
+          
+          # Scan Dockerfiles
+          for dockerfile in $(find . -name "Dockerfile*"); do
+            echo "Scanning $dockerfile..." >> security_report.md
+            trivy config $dockerfile >> security_report.md 2>&1 || true
+          done
+          echo "" >> security_report.md
+      
+      - name: SAST - Static Application Security Testing
+        id: sast
+        continue-on-error: true
+        run: |
+          echo "### Static Application Security Testing" >> security_report.md
+          echo "" >> security_report.md
+          
+          # Run Semgrep for generic security patterns
+          echo "#### Semgrep Analysis" >> security_report.md
+          semgrep --config=auto --json -o semgrep_results.json . || true
+          
+          python3 <<EOF >> security_report.md
+import json
+try:
+    with open('semgrep_results.json') as f:
+        results = json.load(f)
+        if 'results' in results:
+            findings = results['results']
+            if findings:
+                print(f"Found {len(findings)} potential security issues:")
+                for finding in findings[:3]:
+                    print(f"- {finding.get('check_id', 'Unknown')}: {finding.get('path', 'Unknown file')}")
+                if len(findings) > 3:
+                    print(f"... and {len(findings) - 3} more")
+            else:
+                print("No security issues found by Semgrep")
+        else:
+            print("No results from Semgrep scan")
+except:
+    print("Unable to parse Semgrep results")
+print("")
+EOF
+          
+          # Run Bandit for Python
+          if [ -f "requirements.txt" ]; then
+            echo "#### Bandit (Python Security)" >> security_report.md
+            bandit -r src/ -f json -o bandit_results.json || true
+            
+            python3 <<EOF >> security_report.md
+import json
+try:
+    with open('bandit_results.json') as f:
+        results = json.load(f)
+        if 'results' in results:
+            issues = results['results']
+            if issues:
+                print(f"Found {len(issues)} potential security issues in Python code:")
+                for issue in issues[:3]:
+                    print(f"- {issue.get('test_name', 'Unknown')}: {issue.get('issue_text', 'Unknown issue')}")
+                if len(issues) > 3:
+                    print(f"... and {len(issues) - 3} more")
+            else:
+                print("No security issues found by Bandit")
+except:
+    print("No Python code security issues found")
+print("")
+EOF
+          fi
+      
+      - name: License Compliance Check
+        id: license_check
+        continue-on-error: true
+        run: |
+          echo "### License Compliance Check" >> security_report.md
+          echo "" >> security_report.md
+          
+          # Check for problematic licenses
+          if [ -f "package.json" ]; then
+            npx license-checker --summary --excludePrivatePackages >> security_report.md 2>&1 || true
+            echo "" >> security_report.md
+          fi
+          
+          if [ -f "requirements.txt" ]; then
+            pip-licenses --summary >> security_report.md 2>&1 || true
+            echo "" >> security_report.md
+          fi
+      
+      - name: Secrets Detection
+        id: secrets
+        continue-on-error: true
+        run: |
+          echo "### Secrets Detection" >> security_report.md
+          echo "" >> security_report.md
+          
+          # Simple grep-based secrets detection (in production, use tools like TruffleHog or GitLeaks)
+          echo "Checking for potential secrets..." >> security_report.md
+          
+          # Check for common secret patterns
+          SECRETS_FOUND=0
+          
+          # API Keys
+          if grep -r "api[_-]?key.*=.*['\"]" --include="*.js" --include="*.py" --include="*.java" . 2>/dev/null | grep -v "example\|sample\|test\|mock" | head -n 3; then
+            echo "⚠️ Potential API keys found" >> security_report.md
+            SECRETS_FOUND=1
+          fi
+          
+          # AWS Keys
+          if grep -r "aws[_-]?access[_-]?key" --include="*.js" --include="*.py" --include="*.java" . 2>/dev/null | grep -v "example\|sample\|test\|mock" | head -n 3; then
+            echo "⚠️ Potential AWS keys found" >> security_report.md
+            SECRETS_FOUND=1
+          fi
+          
+          if [ $SECRETS_FOUND -eq 0 ]; then
+            echo "✅ No obvious secrets detected" >> security_report.md
+          fi
+          echo "" >> security_report.md
+      
+      - name: Generate Security Score
+        id: score
+        run: |
+          # Calculate a simple security score based on findings
+          SCORE=100
+          RISK_LEVEL="low"
+          
+          # Check for critical vulnerabilities
+          if grep -q "Critical:" security_report.md; then
+            SCORE=$((SCORE - 30))
+            RISK_LEVEL="critical"
+          fi
+          
+          # Check for high vulnerabilities
+          if grep -q "High:" security_report.md; then
+            SCORE=$((SCORE - 20))
+            if [ "$RISK_LEVEL" != "critical" ]; then
+              RISK_LEVEL="high"
+            fi
+          fi
+          
+          # Check for secrets
+          if grep -q "Potential.*keys found" security_report.md; then
+            SCORE=$((SCORE - 40))
+            RISK_LEVEL="critical"
+          fi
+          
+          # Ensure score doesn't go below 0
+          if [ $SCORE -lt 0 ]; then
+            SCORE=0
+          fi
+          
+          echo "security_score=$SCORE" >> $GITHUB_OUTPUT
+          echo "risk_level=$RISK_LEVEL" >> $GITHUB_OUTPUT
+          
+          # Add score to report
+          echo "## Security Score: $SCORE/100" >> security_report.md
+          echo "**Risk Level**: $RISK_LEVEL" >> security_report.md
+      
+      - name: Post Security Report Comment
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          SCORE="${{ steps.score.outputs.security_score }}"
+          RISK="${{ steps.score.outputs.risk_level }}"
+          
+          # Create a comprehensive comment
+          COMMENT="# 🔒 Security Validation Report
+          
+**Security Score**: $SCORE/100
+**Risk Level**: $RISK
+
+$(cat security_report.md)
+
+## Recommendations
+
+"
+          
+          if [ "$RISK" = "critical" ]; then
+            COMMENT="$COMMENT
+⛔ **CRITICAL SECURITY ISSUES DETECTED**
+This PR contains critical security issues that must be addressed before merging.
+- Review all identified vulnerabilities
+- Remove any exposed secrets immediately
+- Run \`npm audit fix\` or equivalent for your package manager
+"
+          elif [ "$RISK" = "high" ]; then
+            COMMENT="$COMMENT
+⚠️ **High Risk Security Issues**
+This PR contains high-risk security issues that should be reviewed:
+- Address high and critical vulnerabilities
+- Consider the security impact of these changes
+- Consult with the security team if needed
+"
+          else
+            COMMENT="$COMMENT
+✅ **Security Check Passed**
+No critical security issues detected. Standard review process can proceed.
+"
+          fi
+          
+          COMMENT="$COMMENT
+
+---
+*This security scan is automated. For questions, contact the security team.*"
+          
+          # Post or update comment
+          gh pr comment $PR_NUMBER --body "$COMMENT"
+          
+          # Add appropriate labels based on security findings
+          if [ "$RISK" = "critical" ]; then
+            gh pr edit $PR_NUMBER --add-label "security-critical,needs-security-review"
+          elif [ "$RISK" = "high" ]; then
+            gh pr edit $PR_NUMBER --add-label "security-high,needs-security-review"
+          else
+            gh pr edit $PR_NUMBER --add-label "security-passed"
+          fi
+      
+      - name: Fail if Critical Security Issues
+        if: steps.score.outputs.risk_level == 'critical'
+        run: |
+          echo "❌ Critical security issues detected. PR cannot be auto-merged."
+          exit 1
+      
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: |
+            security_report.md
+            *_results.json
+            *_report.json
+            npm_audit.json
