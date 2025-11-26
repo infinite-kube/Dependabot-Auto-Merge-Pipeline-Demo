@@ -1,0 +1,30 @@
+name: Auto-Merge Dependabot PRs
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  categorize:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Categorize Update
+        id: categorize
+        run: |
+          # Logic to determine update type
+          # Set labels based on semver changes
+          
+  auto-approve:
+    needs: categorize
+    if: contains(github.event.pull_request.labels.*.name, 'patch') || 
+        contains(github.event.pull_request.labels.*.name, 'minor')
+    steps:
+      - name: Auto-approve
+        uses: hmarr/auto-approve-action@v2
+        
+  trigger-jenkins:
+    needs: auto-approve
+    steps:
+      - name: Trigger Jenkins Pipeline
+        run: |
+          # Trigger appropriate Jenkins pipeline based on update type
