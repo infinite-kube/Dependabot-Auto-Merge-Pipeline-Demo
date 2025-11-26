@@ -1,0 +1,313 @@
+# Approval Matrix Configuration
+# Defines who needs to approve what types of updates
+
+approvalMatrix:
+  # Default approval requirements
+  default:
+    minApprovals: 0
+    autoApprove:
+      enabled: true
+      conditions:
+        - updateType: patch
+        - updateType: minor
+          packageType: devDependency
+
+  # Update type specific requirements
+  updateTypes:
+    patch:
+      minApprovals: 0
+      autoApprove:
+        enabled: true
+      reviewers: []
+      bypassReviewers:
+        - dependabot-bot
+        - automation-bot
+
+    minor:
+      minApprovals: 0
+      autoApprove:
+        enabled: true
+        conditions:
+          - packageType: devDependency
+          - ecosystem: npm
+            riskScore: low
+      reviewers:
+        optional:
+          - "@infinite-kube/developers"
+      bypassReviewers:
+        - dependabot-bot
+
+    major:
+      minApprovals: 2
+      autoApprove:
+        enabled: false
+      reviewers:
+        required:
+          - "@infinite-kube/tech-leads"
+          - "@infinite-kube/architecture-team"
+        optional:
+          - "@infinite-kube/qa-team"
+      escalation:
+        afterHours: 24
+        escalateTo:
+          - "@infinite-kube/engineering-managers"
+
+    security:
+      minApprovals: 1
+      autoApprove:
+        enabled: true
+        conditions:
+          - severity: low
+          - severity: medium
+            updateType: patch
+      fastTrack: true
+      reviewers:
+        required:
+          - "@infinite-kube/security-team"
+      escalation:
+        afterHours: 4
+        escalateTo:
+          - "@infinite-kube/security-leads"
+          - "@infinite-kube/ciso"
+
+  # Package-specific overrides
+  packages:
+    # Critical production dependencies
+    critical:
+      packages:
+        - react
+        - react-dom
+        - express
+        - next
+        - "@apollo/server"
+        - database-client
+      requirements:
+        patch:
+          minApprovals: 1
+          reviewers:
+            required:
+              - "@infinite-kube/senior-developers"
+        minor:
+          minApprovals: 2
+          reviewers:
+            required:
+              - "@infinite-kube/tech-leads"
+        major:
+          minApprovals: 3
+          reviewers:
+            required:
+              - "@infinite-kube/tech-leads"
+              - "@infinite-kube/architecture-team"
+              - "@infinite-kube/product-team"
+
+    # Infrastructure packages
+    infrastructure:
+      packages:
+        - terraform
+        - kubernetes-client
+        - aws-sdk
+        - docker
+        - helm
+      requirements:
+        all:
+          minApprovals: 2
+          reviewers:
+            required:
+              - "@infinite-kube/devops-team"
+              - "@infinite-kube/infrastructure-team"
+
+    # Development dependencies
+    development:
+      packages:
+        - eslint*
+        - prettier
+        - jest
+        - "@types/*"
+        - webpack*
+        - babel*
+      requirements:
+        all:
+          minApprovals: 0
+          autoApprove:
+            enabled: true
+
+    # Security-sensitive packages
+    security:
+      packages:
+        - jsonwebtoken
+        - bcrypt
+        - crypto*
+        - oauth*
+        - passport*
+      requirements:
+        all:
+          minApprovals: 2
+          reviewers:
+            required:
+              - "@infinite-kube/security-team"
+            optional:
+              - "@infinite-kube/backend-team"
+
+  # Team responsibilities
+  teams:
+    tech-leads:
+      members:
+        - john.doe
+        - jane.smith
+        - bob.wilson
+      canApprove:
+        - major
+        - breaking-changes
+        - critical-packages
+
+    security-team:
+      members:
+        - alice.security
+        - bob.secops
+      canApprove:
+        - security
+        - vulnerability-fixes
+        - security-packages
+      fastTrackPrivileges: true
+
+    devops-team:
+      members:
+        - charlie.ops
+        - diana.devops
+      canApprove:
+        - infrastructure
+        - docker
+        - kubernetes
+        - ci-cd
+
+    architecture-team:
+      members:
+        - eve.architect
+        - frank.principal
+      canApprove:
+        - major
+        - architectural-changes
+        - framework-updates
+
+    developers:
+      members:
+        - "@infinite-kube/all-developers"
+      canApprove:
+        - patch
+        - minor
+        - dev-dependencies
+
+  # Approval rules
+  rules:
+    # Working hours enforcement
+    workingHours:
+      enabled: true
+      timezone: "America/New_York"
+      allowedDays:
+        - monday
+        - tuesday
+        - wednesday
+        - thursday
+        - friday
+      allowedHours:
+        start: "09:00"
+        end: "17:00"
+      exceptions:
+        - security-critical
+        - hotfix
+
+    # Auto-approval conditions
+    autoApproval:
+      enabled: true
+      conditions:
+        # Auto-approve if all checks pass
+        allChecksPassed:
+          required: true
+          checks:
+            - build
+            - test
+            - security-scan
+            - lint
+
+        # Risk score threshold
+        riskScore:
+          maxScore: 30
+
+        # File change limits
+        fileChanges:
+          maxFiles: 10
+          maxLines: 100
+          excludedFiles:
+            - package-lock.json
+            - yarn.lock
+            - Gemfile.lock
+
+        # Time-based auto-approval
+        timeBasedApproval:
+          enabled: true
+          waitTime: 24  # hours
+          conditions:
+            - updateType: patch
+            - updateType: minor
+              packageType: devDependency
+
+    # Bypass rules for emergency updates
+    emergencyBypass:
+      enabled: true
+      triggers:
+        - label: security-critical
+        - label: zero-day
+        - label: production-hotfix
+      requiresApprovalFrom:
+        - "@infinite-kube/security-leads"
+        - "@infinite-kube/engineering-managers"
+      notifyChannels:
+        - "#security-alerts"
+        - "#production-incidents"
+
+  # Escalation paths
+  escalation:
+    levels:
+      - level: 1
+        afterHours: 24
+        notifyTeams:
+          - "@infinite-kube/tech-leads"
+      - level: 2
+        afterHours: 48
+        notifyTeams:
+          - "@infinite-kube/engineering-managers"
+      - level: 3
+        afterHours: 72
+        notifyTeams:
+          - "@infinite-kube/cto"
+    
+    exceptions:
+      security:
+        - level: 1
+          afterHours: 4
+          notifyTeams:
+            - "@infinite-kube/security-team"
+        - level: 2
+          afterHours: 8
+          notifyTeams:
+            - "@infinite-kube/security-leads"
+        - level: 3
+          afterHours: 12
+          notifyTeams:
+            - "@infinite-kube/ciso"
+
+  # Metrics and reporting
+  metrics:
+    track:
+      - approvalTime
+      - autoApprovalRate
+      - bypassRate
+      - escalationRate
+    reporting:
+      weekly:
+        recipients:
+          - tech-leads@company.com
+      monthly:
+        recipients:
+          - engineering@company.com
+          - security@company.com
