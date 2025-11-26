@@ -1,0 +1,353 @@
+name: Jenkins Pipeline Trigger
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled]
+  workflow_run:
+    workflows: ["Security Validation", "PR Labeler"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to process'
+        required: true
+        type: number
+      pipeline_type:
+        description: 'Pipeline type to run'
+        required: true
+        type: choice
+        options:
+          - auto
+          - major-update
+          - minor-patch
+          - security-patch
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  determine-pipeline:
+    name: Determine Pipeline Type
+    runs-on: ubuntu-latest
+    outputs:
+      pipeline_type: ${{ steps.determine.outputs.pipeline_type }}
+      should_trigger: ${{ steps.determine.outputs.should_trigger }}
+      pr_number: ${{ steps.determine.outputs.pr_number }}
+    
+    steps:
+      - name: Get PR Information
+        id: pr_info
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # Get PR number from workflow run
+            PR_NUMBER=$(gh api /repos/${{ github.repository }}/pulls \
+              --jq '.[] | select(.head.sha == "${{ github.event.workflow_run.head_sha }}") | .number' | head -n1)
+          else
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+          
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          
+          # Get PR details
+          if [ -n "$PR_NUMBER" ]; then
+            PR_DATA=$(gh pr view $PR_NUMBER --json labels,author,mergeable,state)
+            echo "pr_data=$PR_DATA" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Determine Pipeline Type
+        id: determine
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ steps.pr_info.outputs.pr_number }}"
+          PR_DATA='${{ steps.pr_info.outputs.pr_data }}'
+          
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number found"
+            echo "should_trigger=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if PR is from dependabot
+          AUTHOR=$(echo "$PR_DATA" | jq -r '.author.login')
+          if [ "$AUTHOR" != "dependabot[bot]" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "Not a Dependabot PR, skipping Jenkins trigger"
+            echo "should_trigger=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check PR state
+          STATE=$(echo "$PR_DATA" | jq -r '.state')
+          if [ "$STATE" != "open" ]; then
+            echo "PR is not open, skipping"
+            echo "should_trigger=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Get labels
+          LABELS=$(echo "$PR_DATA" | jq -r '.labels[].name' | tr '\n' ' ')
+          
+          # Determine pipeline type based on labels
+          PIPELINE_TYPE="minor-patch"  # default
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.pipeline_type }}" ] && [ "${{ github.event.inputs.pipeline_type }}" != "auto" ]; then
+            PIPELINE_TYPE="${{ github.event.inputs.pipeline_type }}"
+          elif echo "$LABELS" | grep -q "major-update\|breaking-change"; then
+            PIPELINE_TYPE="major-update"
+          elif echo "$LABELS" | grep -q "security.*critical"; then
+            PIPELINE_TYPE="security-patch"
+          elif echo "$LABELS" | grep -q "minor-update"; then
+            PIPELINE_TYPE="minor-patch"
+          elif echo "$LABELS" | grep -q "patch-update"; then
+            PIPELINE_TYPE="minor-patch"
+          fi
+          
+          echo "pipeline_type=$PIPELINE_TYPE" >> $GITHUB_OUTPUT
+          echo "should_trigger=true" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          
+          echo "Determined pipeline type: $PIPELINE_TYPE for PR #$PR_NUMBER"
+
+  trigger-jenkins:
+    name: Trigger Jenkins Pipeline
+    needs: determine-pipeline
+    if: needs.determine-pipeline.outputs.should_trigger == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set Build Status - Pending
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method POST \
+            /repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha || github.sha }} \
+            -f state='pending' \
+            -f target_url='${{ secrets.JENKINS_URL }}/job/dependabot-pipeline/' \
+            -f description='Jenkins pipeline triggered' \
+            -f context='jenkins/dependabot-pipeline'
+      
+      - name: Trigger Jenkins Build
+        id: jenkins_trigger
+        env:
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_USER: ${{ secrets.JENKINS_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+        run: |
+          PR_NUMBER="${{ needs.determine-pipeline.outputs.pr_number }}"
+          PIPELINE_TYPE="${{ needs.determine-pipeline.outputs.pipeline_type }}"
+          
+          # Get PR details for Jenkins parameters
+          PR_DATA=$(gh api /repos/${{ github.repository }}/pulls/$PR_NUMBER)
+          PR_TITLE=$(echo "$PR_DATA" | jq -r '.title')
+          PR_BRANCH=$(echo "$PR_DATA" | jq -r '.head.ref')
+          PR_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          
+          echo "Triggering Jenkins pipeline: $PIPELINE_TYPE for PR #$PR_NUMBER"
+          
+          # Trigger Jenkins job with parameters
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -u "${JENKINS_USER}:${JENKINS_TOKEN}" \
+            "${JENKINS_URL}/job/dependabot-pipeline/buildWithParameters" \
+            --data-urlencode "token=${{ secrets.JENKINS_BUILD_TOKEN }}" \
+            --data-urlencode "PR_NUMBER=${PR_NUMBER}" \
+            --data-urlencode "PIPELINE_TYPE=${PIPELINE_TYPE}" \
+            --data-urlencode "REPO_NAME=${{ github.repository }}" \
+            --data-urlencode "PR_BRANCH=${PR_BRANCH}" \
+            --data-urlencode "PR_SHA=${PR_SHA}" \
+            --data-urlencode "PR_TITLE=${PR_TITLE}" \
+            --data-urlencode "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" \
+            --data-urlencode "CALLBACK_URL=${{ github.api_url }}/repos/${{ github.repository }}/statuses/${PR_SHA}")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+          
+          if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Jenkins pipeline triggered successfully"
+            
+            # Extract queue location from response headers
+            QUEUE_URL=$(echo "$RESPONSE" | grep -i "location:" | sed 's/Location: //i' | tr -d '\r')
+            echo "queue_url=$QUEUE_URL" >> $GITHUB_OUTPUT
+            
+            # Post comment to PR
+            gh pr comment $PR_NUMBER --body "## 🚀 Jenkins Pipeline Triggered
+            
+**Pipeline Type**: \`$PIPELINE_TYPE\`
+**Build URL**: [View in Jenkins](${{ secrets.JENKINS_URL }}/job/dependabot-pipeline/)
+
+The pipeline will perform the following steps:
+$(case $PIPELINE_TYPE in
+  "major-update")
+    echo "1. Full test suite execution
+2. Integration testing
+3. Performance testing
+4. Manual approval gate
+5. Staged deployment
+6. Smoke tests
+7. Manual verification required"
+    ;;
+  "security-patch")
+    echo "1. Security validation
+2. Vulnerability scanning
+3. Fast-track testing
+4. Automated deployment (if tests pass)
+5. Security verification
+6. Automated rollback on failure"
+    ;;
+  *)
+    echo "1. Linting and code quality checks
+2. Unit tests
+3. Build verification
+4. Automated merge (if eligible)
+5. Automated deployment
+6. Post-deployment verification"
+    ;;
+esac)
+
+Status updates will be posted here as the pipeline progresses."
+          else
+            echo "❌ Failed to trigger Jenkins pipeline"
+            echo "HTTP Code: $HTTP_CODE"
+            echo "Response: $BODY"
+            
+            gh pr comment $PR_NUMBER --body "## ❌ Jenkins Pipeline Trigger Failed
+            
+Failed to trigger Jenkins pipeline. HTTP Status: $HTTP_CODE
+            
+Please check Jenkins connectivity and try again using the workflow dispatch trigger."
+            
+            exit 1
+          fi
+      
+      - name: Wait for Jenkins Queue
+        if: success()
+        id: jenkins_wait
+        env:
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_USER: ${{ secrets.JENKINS_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+        run: |
+          QUEUE_URL="${{ steps.jenkins_trigger.outputs.queue_url }}"
+          
+          if [ -z "$QUEUE_URL" ]; then
+            echo "No queue URL available, skipping wait"
+            exit 0
+          fi
+          
+          # Wait for job to leave queue (max 60 seconds)
+          for i in {1..12}; do
+            sleep 5
+            
+            QUEUE_RESPONSE=$(curl -s -u "${JENKINS_USER}:${JENKINS_TOKEN}" "${QUEUE_URL}api/json")
+            EXECUTABLE_URL=$(echo "$QUEUE_RESPONSE" | jq -r '.executable.url // empty')
+            
+            if [ -n "$EXECUTABLE_URL" ]; then
+              echo "Job started: $EXECUTABLE_URL"
+              echo "build_url=$EXECUTABLE_URL" >> $GITHUB_OUTPUT
+              break
+            fi
+            
+            echo "Waiting for job to start... ($i/12)"
+          done
+      
+      - name: Monitor Jenkins Build
+        if: success() && steps.jenkins_wait.outputs.build_url != ''
+        env:
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_USER: ${{ secrets.JENKINS_USER }}
+          JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUILD_URL="${{ steps.jenkins_wait.outputs.build_url }}"
+          PR_NUMBER="${{ needs.determine-pipeline.outputs.pr_number }}"
+          
+          echo "Monitoring Jenkins build: $BUILD_URL"
+          
+          # Create a simple monitoring loop (in production, use webhooks)
+          for i in {1..60}; do  # Max 5 minutes
+            sleep 5
+            
+            BUILD_STATUS=$(curl -s -u "${JENKINS_USER}:${JENKINS_TOKEN}" "${BUILD_URL}api/json" | jq -r '.result // "null"')
+            
+            if [ "$BUILD_STATUS" != "null" ]; then
+              echo "Build completed with status: $BUILD_STATUS"
+              
+              # Update GitHub status
+              if [ "$BUILD_STATUS" = "SUCCESS" ]; then
+                gh api \
+                  --method POST \
+                  /repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha || github.sha }} \
+                  -f state='success' \
+                  -f target_url="${BUILD_URL}" \
+                  -f description='Jenkins pipeline passed' \
+                  -f context='jenkins/dependabot-pipeline'
+                
+                gh pr comment $PR_NUMBER --body "✅ **Jenkins Pipeline Completed Successfully**
+                
+[View Full Build Log](${BUILD_URL}console)"
+                
+                # Add label for successful build
+                gh pr edit $PR_NUMBER --add-label "jenkins-passed"
+                
+              else
+                gh api \
+                  --method POST \
+                  /repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha || github.sha }} \
+                  -f state='failure' \
+                  -f target_url="${BUILD_URL}" \
+                  -f description='Jenkins pipeline failed' \
+                  -f context='jenkins/dependabot-pipeline'
+                
+                gh pr comment $PR_NUMBER --body "❌ **Jenkins Pipeline Failed**
+                
+Status: \`$BUILD_STATUS\`
+[View Full Build Log](${BUILD_URL}console)
+
+Please review the failure and take appropriate action."
+                
+                # Add label for failed build
+                gh pr edit $PR_NUMBER --add-label "jenkins-failed"
+              fi
+              
+              break
+            fi
+            
+            if [ $((i % 12)) -eq 0 ]; then
+              echo "Build still running after $((i * 5)) seconds..."
+            fi
+          done
+          
+          if [ "$BUILD_STATUS" = "null" ]; then
+            echo "Build still running after timeout period"
+            gh pr comment $PR_NUMBER --body "⏱️ **Jenkins Pipeline Still Running**
+            
+The pipeline is taking longer than expected. 
+[Monitor progress in Jenkins](${BUILD_URL})"
+          fi
+      
+      - name: Trigger Rollback on Failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ needs.determine-pipeline.outputs.pr_number }}"
+          
+          gh pr comment $PR_NUMBER --body "## ⚠️ Pipeline Trigger Failed
+          
+The Jenkins pipeline trigger encountered an error. 
+
+### Manual Actions Available:
+- Re-trigger using the workflow dispatch action
+- Check Jenkins connectivity and credentials
+- Review logs in the Actions tab
+
+If this was a production deployment, automatic rollback procedures would be initiated."
