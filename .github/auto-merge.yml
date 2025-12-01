@@ -1,0 +1,28 @@
+# Auto-merge configuration
+auto_merge_rules:
+  - name: "Auto-merge Patches"
+    match:
+      update_type: "version-update:semver-patch"
+      dependency_type: "production"
+    merge_method: "squash"
+    delete_branch: true
+    
+  - name: "Auto-merge Dev Dependencies"
+    match:
+      dependency_type: "development"
+      update_type: ["version-update:semver-patch", "version-update:semver-minor"]
+    merge_method: "squash"
+    required_approvals: 0
+    
+  - name: "Review Minor Updates"
+    match:
+      update_type: "version-update:semver-minor"
+      dependency_type: "production"
+    required_approvals: 1
+    merge_method: "merge"
+    
+  - name: "Manual Major Updates"
+    match:
+      update_type: "version-update:semver-major"
+    required_approvals: 2
+    block_automerge: true
