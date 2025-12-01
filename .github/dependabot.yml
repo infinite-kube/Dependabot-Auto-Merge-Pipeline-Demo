@@ -1,21 +1,40 @@
-    version: 2
+version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 50
+    labels:
+      - "dependencies"
+      - "auto-mergeable"
+
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 50
+    labels:
+      - "dependencies"
+      - "auto-mergeable"
+
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 50
+    labels:
+      - "dependencies"
+      - "auto-mergeable"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 50
+    labels:
+      - "dependencies"
+      - "auto-mergeable"
     groups:
       patch-updates:
         patterns:
@@ -27,9 +46,3 @@ updates:
           - "*"
         update-types:
           - "minor"
-  open-pull-requests-limit: 20
-     labels:
-      - "dependencies"
-      - "auto-mergeable"
-      - "dependencies"
-      - "npm"
