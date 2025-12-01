@@ -1,0 +1,31 @@
+name: Handle Minor Updates
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  evaluate-minor:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Get metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          
+      - name: Label and categorize
+        run: |
+          if [[ "${{ steps.metadata.outputs.update-type }}" == "version-update:semver-minor" ]]; then
+            gh pr edit "$PR_URL" --add-label "minor-update,needs-review"
+            gh pr comment "$PR_URL" --body "Minor update detected. Requires one reviewer approval."
+          fi
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          
+      - name: Run integration tests
+        run: |
+          # Add your test commands here
+          npm test
+          npm run integration-test
