@@ -1,11 +1,21 @@
     version: 2
-   updates:
-    - package-ecosystem: "npm"
+updates:
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
-      time: "16:45"
-      timezone: "America/New_York"
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
     groups:
       patch-updates:
         patterns:
