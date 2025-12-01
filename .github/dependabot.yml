@@ -27,7 +27,9 @@ updates:
           - "*"
         update-types:
           - "minor"
-     
+  open-pull-requests-limit: 20
      labels:
       - "dependencies"
       - "auto-mergeable"
+      - "dependencies"
+      - "npm"
