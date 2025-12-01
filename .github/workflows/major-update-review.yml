@@ -1,0 +1,41 @@
+name: Major Update Review Process
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  major-update-handler:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Get metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        
+      - name: Handle major updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          # Add warning labels
+          gh pr edit "$PR_URL" --add-label "major-update,breaking-change,needs-discussion"
+          
+          # Post detailed comment
+          gh pr comment "$PR_URL" --body "## ⚠️ Major Version Update Detected
+          
+          **Package**: ${{ steps.metadata.outputs.dependency-names }}
+          **Update Type**: Major version bump
+          **Previous Version**: ${{ steps.metadata.outputs.previous-version }}
+          **New Version**: ${{ steps.metadata.outputs.new-version }}
+          
+          ### Required Actions:
+          1. Review breaking changes in release notes
+          2. Update integration tests
+          3. Get approval from 2+ maintainers
+          4. Consider rollback plan
+          
+          ### Automated Checks:
+          - [ ] All CI tests passing
+          - [ ] No security vulnerabilities
+          - [ ] Performance benchmarks acceptable"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
