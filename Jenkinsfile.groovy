@@ -13,11 +13,14 @@ pipeline {
     }
     
     environment {
-        NODE_ENV = 'test'
-        CI = 'true'
-        GITHUB_API = 'https://api.github.com'
-        DEPLOY_ENV = "${params.PIPELINE_TYPE == 'major-update' ? 'staging' : 'production'}"
-        AUTO_MERGE = "${params.PIPELINE_TYPE != 'major-update' ? 'true' : 'false'}"
+        NODE_ENV            = 'test'
+        CI                  = 'true'
+        GITHUB_API          = 'https://api.github.com'
+        DEPLOY_ENV          = "${params.PIPELINE_TYPE == 'major-update' ? 'staging' : 'production'}"
+        AUTO_MERGE          = "${params.PIPELINE_TYPE != 'major-update' ? 'true' : 'false'}"
+        DEPLOYMENT_STRATEGY = ''
+        APPROVAL_REQUIRED   = ''
+        UPDATE_TYPE         = ''
     }
     
     options {
@@ -57,6 +60,41 @@ pipeline {
                 echo "Repository: ${params.REPO_NAME}"
                 echo "Branch: ${params.PR_BRANCH}"
                 echo "Commit SHA: ${params.PR_SHA}"
+            }
+        }
+
+        // FROM SECTION 2: classify update and set deployment strategy / approval flags
+        stage('Categorize Update') {
+            steps {
+                script {
+                    // Prefer Jenkins env PULL_REQUEST_ID if set, fall back to PR_NUMBER param
+                    def prId = env.PULL_REQUEST_ID ?: params.PR_NUMBER
+                    if (!prId) {
+                        echo "No PR ID available for dependabot-parser. Skipping classification."
+                    } else {
+                        def updateType = sh(
+                            script: "dependabot-parser --pr ${prId}",
+                            returnStdout: true
+                        ).trim()
+                        
+                        env.UPDATE_TYPE = updateType
+
+                        if (updateType == 'patch') {
+                            env.DEPLOYMENT_STRATEGY = 'rolling'
+                            env.APPROVAL_REQUIRED   = 'false'
+                        } else if (updateType == 'minor') {
+                            env.DEPLOYMENT_STRATEGY = 'blue-green'
+                            env.APPROVAL_REQUIRED   = 'true'
+                        } else if (updateType == 'major') {
+                            env.DEPLOYMENT_STRATEGY = 'canary'
+                            env.APPROVAL_REQUIRED   = 'manual'
+                        }
+
+                        echo "Update type: ${env.UPDATE_TYPE}"
+                        echo "Deployment strategy: ${env.DEPLOYMENT_STRATEGY}"
+                        echo "Approval required: ${env.APPROVAL_REQUIRED}"
+                    }
+                }
             }
         }
         
@@ -285,6 +323,14 @@ pipeline {
                 }
             }
         }
+
+        // FROM SECTION 2: Trivy container security scan
+        stage('Security Scan') {
+            when { expression { env.UPDATE_TYPE == 'patch' } }
+            steps {
+                sh 'trivy scan --severity HIGH,CRITICAL .'
+            }
+        }
         
         stage('Approval Gate') {
             when {
@@ -379,6 +425,12 @@ pipeline {
                             # helm upgrade --install app-prod ./charts --namespace production || true
                         '''
                     }
+
+                    // FROM SECTION 2: deployment strategy specific behavior
+                    if (env.DEPLOYMENT_STRATEGY == 'rolling') {
+                        sh 'kubectl set image deployment/app app=app:${BUILD_NUMBER}'
+                    }
+                    // Additional deployment strategies can be added here based on DEPLOYMENT_STRATEGY
                     
                     // Simulate deployment
                     sh 'sleep 10'
