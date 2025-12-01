@@ -1,20 +1,46 @@
 version: 2
 updates:
+  # Major Updates Example - Allow all updates including major versions
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/frontend"
     schedule:
       interval: "weekly"
-    groups:
-      patch-updates:
-        patterns:
-          - "*"
-        update-types:
-          - "patch"
-      minor-updates:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
+    open-pull-requests-limit: 10
+    versioning-strategy: "increase"
     labels:
       - "dependencies"
-      - "auto-mergeable"
+      - "major-update"
+    commit-message:
+      prefix: "feat"
+      prefix-development: "chore"
+      include: "scope"
+    
+  # Minor Updates Example - Restrict to minor and patch only
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Ignore major version updates for critical packages
+      - dependency-name: "django"
+        versions: ["4.x", "5.x"]
+    labels:
+      - "dependencies"
+      - "minor-update"
+    
+  # Security Patching Example - Security updates only
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 20
+    labels:
+      - "security"
+      - "patch"
+    commit-message:
+      prefix: "fix"
+      prefix-development: "fix"
+      include: "scope"
+```
