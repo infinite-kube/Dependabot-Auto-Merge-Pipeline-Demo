@@ -4,8 +4,8 @@
     directory: "/"
     schedule:
       interval: "daily"
-      day: "monday"
       time: "16:45"
+      timezone: "America/New_York"
     groups:
       patch-updates:
         patterns:
