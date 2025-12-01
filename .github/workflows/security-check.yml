@@ -52,7 +52,8 @@ jobs:
             
             # Parse and format npm audit results
             python3 <<EOF >> security_report.md
-import json
+            
+            import json
 try:
     with open('npm_audit.json') as f:
         audit = json.load(f)
