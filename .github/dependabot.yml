@@ -1,41 +1,22 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 50
-    labels:
-      - "dependencies"
-      - "auto-mergeable"
-
+  # ==========================================
+  # PYTHON / PIP
+  # ==========================================
+  # Strategy: Merged Section 1's high limits with Section 2's detailed grouping.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "daily"
+    # S1 used 50, S2 used 15. We keep 50 to not limit S1's functionality.
     open-pull-requests-limit: 50
+    # Combined labels from both sections to ensure all workflows trigger.
     labels:
       - "dependencies"
       - "auto-mergeable"
-
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 50
-    labels:
-      - "dependencies"
-      - "auto-mergeable"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 50
-    labels:
-      - "dependencies"
-      - "auto-mergeable"
+      - "automated"
     groups:
+      # Detailed grouping from Section 2 (preserves granularity)
       patch-updates:
         patterns:
           - "*"
@@ -46,3 +27,60 @@ updates:
           - "*"
         update-types:
           - "minor"
+      major-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
+  # ==========================================
+  # GITHUB ACTIONS
+  # ==========================================
+  # Strategy: Merged S1's daily schedule/grouping with S2's labels.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    # S1 wanted Daily, S2 wanted Weekly. We keep Daily (inclusive of weekly).
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 50
+    labels:
+      - "dependencies"
+      - "auto-mergeable"
+      - "github-actions"
+    groups:
+      # S1 separated Patch/Minor, S2 combined them.
+      # We keep them separate to preserve S1's ability to review them distinctively.
+      patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+
+  # ==========================================
+  # NPM / NODE (From Section 1 only)
+  # ==========================================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 50
+    labels:
+      - "dependencies"
+      - "auto-mergeable"
+
+  # ==========================================
+  # DOCKER (From Section 1 only)
+  # ==========================================
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 50
+    labels:
+      - "dependencies"
+      - "auto-mergeable"
