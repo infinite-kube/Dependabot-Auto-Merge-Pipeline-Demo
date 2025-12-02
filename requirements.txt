@@ -2,7 +2,7 @@
 Django==5.2.9
 Flask==2.3.2
 FastAPI==0.123.5
-uvicorn==0.21.1
+uvicorn==0.38.0
 
 # Database
 psycopg2-binary==2.9.11
