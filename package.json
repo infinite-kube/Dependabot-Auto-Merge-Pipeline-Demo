@@ -58,7 +58,7 @@
     "underscore": "1.12.1",
     "ini": "1.3.6",
     "bl": "6.1.5",
-    "node-notifier": "8.0.1",
+    "node-notifier": "10.0.1",
     "yargs-parser": "22.0.0"
   },
   "devDependencies": {
