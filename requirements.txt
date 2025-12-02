@@ -29,7 +29,7 @@ bcrypt==5.0.0
 python-jose==3.5.0
 
 # Utilities
-python-dotenv==1.0.0
+python-dotenv==1.2.1
 pydantic==2.12.5
 python-dateutil==2.8.2
 pytz==2025.2
