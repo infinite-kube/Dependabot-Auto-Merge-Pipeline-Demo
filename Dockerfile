@@ -19,7 +19,7 @@ COPY src/index.js ./src/
 EXPOSE 3000
 
 # Stage 2: Python application
-FROM python:3.11-slim AS python-app
+FROM python:3.14-slim AS python-app
 
 WORKDIR /app
 
