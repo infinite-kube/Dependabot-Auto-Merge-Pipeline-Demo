@@ -79,7 +79,7 @@
     "babel-loader": "10.0.0",
     "@babel/core": "7.28.5",
     "@babel/preset-env": "7.28.5",
-    "husky": "5.2.0",
+    "husky": "9.1.7",
     "lint-staged": "16.2.7",
     "npm-check-updates": "19.1.2",
     "handlebars": "4.7.8",
