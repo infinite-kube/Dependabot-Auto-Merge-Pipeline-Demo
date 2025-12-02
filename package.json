@@ -35,7 +35,7 @@
     "winston": "3.18.3",
     "cors": "2.8.5",
     "helmet": "8.1.0",
-    "compression": "1.7.4",
+    "compression": "1.8.1",
     "body-parser": "2.2.1",
     "uuid": "13.0.0",
     "jsonwebtoken": "9.0.2",
