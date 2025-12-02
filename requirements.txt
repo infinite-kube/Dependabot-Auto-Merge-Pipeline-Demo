@@ -1,5 +1,5 @@
 # Web Framework
-Django==4.2.0
+Django==5.2.9
 Flask==2.3.2
 FastAPI==0.95.1
 uvicorn==0.21.1
