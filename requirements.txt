@@ -62,7 +62,7 @@ sentry-sdk==2.46.0
 prometheus-client==0.16.0
 
 # Task Queue
-celery==5.2.7
+celery==5.6.0
 redis==7.1.0
 
 # Documentation
