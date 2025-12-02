@@ -1,7 +1,7 @@
 # Web Framework
 Django==5.2.9
 Flask==2.3.2
-FastAPI==0.95.1
+FastAPI==0.123.5
 uvicorn==0.21.1
 
 # Database
