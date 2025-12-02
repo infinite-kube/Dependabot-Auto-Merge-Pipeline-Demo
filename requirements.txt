@@ -17,7 +17,7 @@ scipy==1.10.1
 scikit-learn==1.7.2
 
 # API and HTTP
-requests==2.30.0
+requests==2.32.5
 httpx==0.28.1
 aiohttp==3.13.2
 urllib3==2.5.0
