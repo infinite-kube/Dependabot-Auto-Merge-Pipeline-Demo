@@ -42,7 +42,7 @@ COPY src/app.py ./src/
 EXPOSE 5000
 
 # Stage 3: Java application (if using Maven)
-FROM maven:3.9-openjdk-17 AS java-build
+FROM maven:3-openjdk-18 AS java-build
 
 WORKDIR /app
 
