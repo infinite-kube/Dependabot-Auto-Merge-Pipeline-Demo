@@ -6,7 +6,7 @@ uvicorn==0.21.1
 
 # Database
 psycopg2-binary==2.9.11
-pymongo==4.3.3
+pymongo==4.15.5
 redis==4.5.4
 SQLAlchemy==2.0.44
 
