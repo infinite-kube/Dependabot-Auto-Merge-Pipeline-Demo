@@ -2,7 +2,7 @@
 # This demonstrates dependencies that Dependabot will monitor
 
 # Stage 1: Node.js application
-FROM node:18-alpine AS node-app
+FROM node:25-alpine AS node-app
 
 WORKDIR /app
 
@@ -59,7 +59,7 @@ RUN mvn dependency:go-offline
 # RUN mvn clean package
 
 # Stage 4: Final runtime image (Node.js as primary)
-FROM node:18-alpine
+FROM node:25-alpine
 
 WORKDIR /app
 
