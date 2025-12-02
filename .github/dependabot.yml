@@ -3,20 +3,20 @@ updates:
   # ==========================================
   # PYTHON / PIP
   # ==========================================
-  # Strategy: Merged Section 1's high limits with Section 2's detailed grouping.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "daily"
-    # S1 used 50, S2 used 15. We keep 50 to not limit S1's functionality.
-    open-pull-requests-limit: 50
-    # Combined labels from both sections to ensure all workflows trigger.
+    # From original config
+    open-pull-requests-limit: 10
+    # Labels used by your auto-merge workflow
     labels:
       - "dependencies"
       - "auto-mergeable"
       - "automated"
     groups:
-      # Detailed grouping from Section 2 (preserves granularity)
+      # Non-critical updates (your workflow can auto-merge
+      # patch/minor and block majors via update-type + severity)
       patch-updates:
         patterns:
           - "*"
@@ -27,6 +27,7 @@ updates:
           - "*"
         update-types:
           - "minor"
+      # Majors kept separate / higher scrutiny
       major-updates:
         patterns:
           - "*"
@@ -36,20 +37,17 @@ updates:
   # ==========================================
   # GITHUB ACTIONS
   # ==========================================
-  # Strategy: Merged S1's daily schedule/grouping with S2's labels.
   - package-ecosystem: "github-actions"
     directory: "/"
-    # S1 wanted Daily, S2 wanted Weekly. We keep Daily (inclusive of weekly).
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 50
+      # From original config
+      interval: "weekly"
     labels:
       - "dependencies"
       - "auto-mergeable"
       - "github-actions"
     groups:
-      # S1 separated Patch/Minor, S2 combined them.
-      # We keep them separate to preserve S1's ability to review them distinctively.
+      # Non-critical (patch/minor) – safe to auto-merge
       patch-updates:
         patterns:
           - "*"
@@ -60,27 +58,26 @@ updates:
           - "*"
         update-types:
           - "minor"
+      # Majors remain individual PRs (no group rule)
 
   # ==========================================
-  # NPM / NODE (From Section 1 only)
+  # NPM / NODE
   # ==========================================
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 50
     labels:
       - "dependencies"
       - "auto-mergeable"
 
   # ==========================================
-  # DOCKER (From Section 1 only)
+  # DOCKER
   # ==========================================
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 50
+      interval: "weekly"
     labels:
       - "dependencies"
       - "auto-mergeable"
