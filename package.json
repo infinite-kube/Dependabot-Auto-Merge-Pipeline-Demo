@@ -48,7 +48,7 @@
     "passport": "0.4.1",
     "passport-jwt": "4.0.1",
     "minimist": "1.2.8",
-    "node-fetch": "2.6.7",
+    "node-fetch": "3.3.2",
     "glob-parent": "5.1.1",
     "tar": "7.5.2",
     "path-parse": "1.0.7",
