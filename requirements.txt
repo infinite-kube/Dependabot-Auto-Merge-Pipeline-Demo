@@ -49,7 +49,7 @@ isort==7.0.0
 pylint==4.0.4
 
 # Development Tools
-ipython==9.7.0
+ipython==9.8.0
 ipdb==0.13.13
 pre-commit==4.5.0
 
