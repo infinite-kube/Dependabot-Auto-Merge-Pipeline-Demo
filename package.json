@@ -38,7 +38,7 @@
     "compression": "1.8.1",
     "body-parser": "2.2.1",
     "uuid": "13.0.0",
-    "jsonwebtoken": "9.0.2",
+    "jsonwebtoken": "9.0.3",
     "bcrypt": "6.0.0",
     "mongoose": "9.0.0",
     "redis": "5.10.0",
