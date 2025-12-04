@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployment Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e4e4e4;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .repo-info {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .repo-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .repo-badge a {
+            color: #4facfe;
+            text-decoration: none;
+        }
+
+        .repo-badge a:hover {
+            text-decoration: underline;
+        }
+
+        .status-bar {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #00c853;
+            box-shadow: 0 0 10px rgba(0, 200, 83, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .refresh-btn {
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: #1a1a2e;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(79, 172, 254, 0.3);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .commits-section h2 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+
+        .commit-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .commit-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .commit-card:hover {
+            transform: translateX(5px);
+            border-color: rgba(79, 172, 254, 0.3);
+        }
+
+        .commit-card.latest {
+            border-color: rgba(0, 200, 83, 0.5);
+            background: rgba(0, 200, 83, 0.05);
+        }
+
+        .commit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .commit-sha {
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            background: rgba(79, 172, 254, 0.15);
+            color: #4facfe;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+
+        .commit-sha:hover {
+            background: rgba(79, 172, 254, 0.25);
+        }
+
+        .commit-time {
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        .commit-message {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .commit-author {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .author-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+
+        .author-name {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .latest-badge {
+            background: linear-gradient(90deg, #00c853, #00e676);
+            color: #1a1a2e;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(79, 172, 254, 0.2);
+            border-top-color: #4facfe;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(255, 82, 82, 0.1);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: #ff5252;
+        }
+
+        .rate-limit-warning {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #ffc107;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: #4facfe;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Deployment Dashboard</h1>
+            <p class="subtitle">Real-time view of recent repository changes</p>
+            <div class="repo-info">
+                <span class="repo-badge">
+                    📦 <a id="repo-link" href="#" target="_blank">Loading...</a>
+                </span>
+                <span class="repo-badge">
+                    🌿 Branch: <strong>main</strong>
+                </span>
+            </div>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span>Deployed & Running</span>
+            </div>
+            <div class="status-item">
+                <span id="last-updated">Last updated: --</span>
+            </div>
+            <button class="refresh-btn" onclick="fetchCommits()">↻ Refresh</button>
+        </div>
+
+        <div id="rate-limit-warning" class="rate-limit-warning" style="display: none;">
+            ⚠️ GitHub API rate limit: <span id="rate-remaining">--</span> requests remaining. Resets at <span id="rate-reset">--</span>.
+        </div>
+
+        <section class="commits-section">
+            <h2>📋 Recent Changes</h2>
+            <div id="commits-container">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Fetching commits...</p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>Powered by Jenkins CI/CD Pipeline | <a href="https://github.com/infinite-kube/Dependabot-Auto-Merge-Pipeline-Demo" target="_blank">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // =============================================
+        // CONFIGURATION - Update these values
+        // =============================================
+        const CONFIG = {
+            owner: 'infinite-kube',
+            repo: 'Dependabot-Auto-Merge-Pipeline-Demo',
+            branch: 'main',
+            commitsToShow: 10
+        };
+
+        // =============================================
+        // GitHub API Functions
+        // =============================================
+        const GITHUB_API = 'https://api.github.com';
+
+        async function fetchCommits() {
+            const container = document.getElementById('commits-container');
+            const refreshBtn = document.querySelector('.refresh-btn');
+            
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '↻ Loading...';
+            
+            try {
+                const response = await fetch(
+                    `${GITHUB_API}/repos/${CONFIG.owner}/${CONFIG.repo}/commits?sha=${CONFIG.branch}&per_page=${CONFIG.commitsToShow}`,
+                    {
+                        headers: {
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+
+                // Check rate limiting
+                const rateLimit = response.headers.get('X-RateLimit-Remaining');
+                const rateReset = response.headers.get('X-RateLimit-Reset');
+                updateRateLimitWarning(rateLimit, rateReset);
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('Rate limit exceeded. Please wait before refreshing.');
+                    }
+                    throw new Error(`GitHub API error: ${response.status}`);
+                }
+
+                const commits = await response.json();
+                renderCommits(commits);
+                updateLastUpdated();
+
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error">
+                        <p><strong>Error loading commits</strong></p>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = '↻ Refresh';
+            }
+        }
+
+        function renderCommits(commits) {
+            const container = document.getElementById('commits-container');
+            
+            if (!commits || commits.length === 0) {
+                container.innerHTML = '<p class="loading">No commits found.</p>';
+                return;
+            }
+
+            const html = commits.map((commit, index) => {
+                const sha = commit.sha.substring(0, 7);
+                const message = escapeHtml(commit.commit.message.split('\n')[0]);
+                const author = commit.commit.author.name;
+                const date = new Date(commit.commit.author.date);
+                const timeAgo = getTimeAgo(date);
+                const avatarUrl = commit.author?.avatar_url || 'https://github.com/ghost.png';
+                const commitUrl = commit.html_url;
+                const isLatest = index === 0;
+
+                return `
+                    <div class="commit-card ${isLatest ? 'latest' : ''}">
+                        <div class="commit-header">
+                            <div>
+                                <a href="${commitUrl}" target="_blank" class="commit-sha">${sha}</a>
+                                ${isLatest ? '<span class="latest-badge">Latest</span>' : ''}
+                            </div>
+                            <span class="commit-time">${timeAgo}</span>
+                        </div>
+                        <p class="commit-message">${message}</p>
+                        <div class="commit-author">
+                            <img src="${avatarUrl}" alt="${author}" class="author-avatar">
+                            <span class="author-name">${escapeHtml(author)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `<div class="commit-list">${html}</div>`;
+        }
+
+        function updateRateLimitWarning(remaining, resetTimestamp) {
+            const warning = document.getElementById('rate-limit-warning');
+            const remainingEl = document.getElementById('rate-remaining');
+            const resetEl = document.getElementById('rate-reset');
+
+            if (remaining && parseInt(remaining) < 20) {
+                warning.style.display = 'block';
+                remainingEl.textContent = remaining;
+                if (resetTimestamp) {
+                    const resetDate = new Date(parseInt(resetTimestamp) * 1000);
+                    resetEl.textContent = resetDate.toLocaleTimeString();
+                }
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
+        function updateLastUpdated() {
+            const el = document.getElementById('last-updated');
+            const now = new Date();
+            el.textContent = `Last updated: ${now.toLocaleTimeString()}`;
+        }
+
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            
+            const intervals = [
+                { label: 'year', seconds: 31536000 },
+                { label: 'month', seconds: 2592000 },
+                { label: 'week', seconds: 604800 },
+                { label: 'day', seconds: 86400 },
+                { label: 'hour', seconds: 3600 },
+                { label: 'minute', seconds: 60 }
+            ];
+
+            for (const interval of intervals) {
+                const count = Math.floor(seconds / interval.seconds);
+                if (count >= 1) {
+                    return `${count} ${interval.label}${count > 1 ? 's' : ''} ago`;
+                }
+            }
+            return 'Just now';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // =============================================
+        // Initialize
+        // =============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set repo link
+            const repoLink = document.getElementById('repo-link');
+            repoLink.href = `https://github.com/${CONFIG.owner}/${CONFIG.repo}`;
+            repoLink.textContent = `${CONFIG.owner}/${CONFIG.repo}`;
+
+            // Fetch commits on load
+            fetchCommits();
+
+            // Auto-refresh every 30 seconds
+            setInterval(fetchCommits, 30000);
+        });
+    </script>
+</body>
+</html>
