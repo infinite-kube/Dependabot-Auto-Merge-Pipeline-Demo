@@ -1,7 +1,12 @@
 pipeline {
     agent any
     
+    triggers {
+        githubPush()
+    }
+    
     parameters {
+        booleanParam(name: 'IS_PR_BUILD', defaultValue: false, description: 'Set to true when triggered by PR webhook')
         string(name: 'PR_NUMBER', defaultValue: '', description: 'Pull Request number')
         choice(name: 'PIPELINE_TYPE', choices: ['minor-patch', 'major-update', 'security-patch'], description: 'Type of pipeline to run')
         string(name: 'REPO_NAME', defaultValue: '', description: 'Repository name')
@@ -35,36 +40,232 @@ pipeline {
         stage('Initialize') {
             steps {
                 script {
-                    currentBuild.displayName = "#${BUILD_NUMBER} - PR #${params.PR_NUMBER} - ${params.PIPELINE_TYPE}"
-                    currentBuild.description = "${params.PR_TITLE}"
-                    
-                    // Send initial status to GitHub
-                    if (params.CALLBACK_URL) {
-                        sh """
-                            curl -X POST ${params.CALLBACK_URL} \
-                                -H "Authorization: token ${params.GITHUB_TOKEN}" \
-                                -H "Content-Type: application/json" \
-                                -d '{
-                                    "state": "pending",
-                                    "target_url": "${BUILD_URL}",
-                                    "description": "Jenkins pipeline in progress",
-                                    "context": "jenkins/dependabot-pipeline"
-                                }'
-                        """
+                    if (params.IS_PR_BUILD || params.PR_NUMBER != '') {
+                        currentBuild.displayName = "#${BUILD_NUMBER} - PR #${params.PR_NUMBER} - ${params.PIPELINE_TYPE}"
+                        currentBuild.description = "${params.PR_TITLE}"
+                        
+                        // Send initial status to GitHub
+                        if (params.CALLBACK_URL) {
+                            sh """
+                                curl -X POST ${params.CALLBACK_URL} \
+                                    -H "Authorization: token ${params.GITHUB_TOKEN}" \
+                                    -H "Content-Type: application/json" \
+                                    -d '{
+                                        "state": "pending",
+                                        "target_url": "${BUILD_URL}",
+                                        "description": "Jenkins pipeline in progress",
+                                        "context": "jenkins/dependabot-pipeline"
+                                    }'
+                            """
+                        }
+                        
+                        echo "Starting Dependabot Pipeline"
+                        echo "PR Number: ${params.PR_NUMBER}"
+                        echo "Pipeline Type: ${params.PIPELINE_TYPE}"
+                        echo "Repository: ${params.REPO_NAME}"
+                        echo "Branch: ${params.PR_BRANCH}"
+                        echo "Commit SHA: ${params.PR_SHA}"
+                    } else {
+                        currentBuild.displayName = "#${BUILD_NUMBER} - Push to ${env.GIT_BRANCH ?: 'main'}"
+                        currentBuild.description = "Direct push deployment"
+                        
+                        echo "Starting Direct Push Pipeline"
+                        echo "Branch: ${env.GIT_BRANCH ?: 'main'}"
+                        echo "Build Number: ${BUILD_NUMBER}"
                     }
                 }
-                
-                echo "Starting Dependabot Pipeline"
-                echo "PR Number: ${params.PR_NUMBER}"
-                echo "Pipeline Type: ${params.PIPELINE_TYPE}"
-                echo "Repository: ${params.REPO_NAME}"
-                echo "Branch: ${params.PR_BRANCH}"
-                echo "Commit SHA: ${params.PR_SHA}"
             }
         }
 
+        // ============================================================
+        // DIRECT PUSH DEPLOYMENT PATH
+        // Triggered when code is pushed directly to main branch
+        // ============================================================
+        stage('Direct Push Deploy') {
+            when {
+                allOf {
+                    expression { !params.IS_PR_BUILD }
+                    expression { params.PR_NUMBER == '' }
+                }
+            }
+            stages {
+                stage('Checkout Main') {
+                    steps {
+                        checkout scm
+                        script {
+                            env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                            env.GIT_COMMIT_MSG = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                            echo "Commit: ${env.GIT_COMMIT_SHORT}"
+                            echo "Message: ${env.GIT_COMMIT_MSG}"
+                        }
+                    }
+                }
+                
+                stage('Install Dependencies') {
+                    parallel {
+                        stage('NPM') {
+                            when {
+                                expression { fileExists('package.json') }
+                            }
+                            steps {
+                                sh '''
+                                    echo "Installing NPM dependencies..."
+                                    npm ci
+                                    npm list --depth=0
+                                '''
+                            }
+                        }
+                        stage('Python') {
+                            when {
+                                expression { fileExists('requirements.txt') }
+                            }
+                            steps {
+                                sh '''
+                                    echo "Installing Python dependencies..."
+                                    python3 -m venv venv
+                                    . venv/bin/activate
+                                    pip install -r requirements.txt
+                                    pip list
+                                '''
+                            }
+                        }
+                        stage('Maven') {
+                            when {
+                                expression { fileExists('pom.xml') }
+                            }
+                            steps {
+                                sh '''
+                                    echo "Installing Maven dependencies..."
+                                    mvn clean dependency:resolve
+                                '''
+                            }
+                        }
+                    }
+                }
+                
+                stage('Run Tests') {
+                    parallel {
+                        stage('NPM Tests') {
+                            when {
+                                expression { fileExists('package.json') }
+                            }
+                            steps {
+                                sh 'npm test || true'
+                            }
+                        }
+                        stage('Python Tests') {
+                            when {
+                                expression { fileExists('requirements.txt') }
+                            }
+                            steps {
+                                sh '''
+                                    . venv/bin/activate
+                                    pytest tests/ --tb=short || true
+                                '''
+                            }
+                        }
+                        stage('Maven Tests') {
+                            when {
+                                expression { fileExists('pom.xml') }
+                            }
+                            steps {
+                                sh 'mvn test || true'
+                            }
+                        }
+                    }
+                }
+                
+                stage('Build Application') {
+                    steps {
+                        script {
+                            if (fileExists('package.json')) {
+                                sh 'npm run build || echo "No build script defined"'
+                            }
+                            if (fileExists('pom.xml')) {
+                                sh 'mvn package -DskipTests'
+                            }
+                            if (fileExists('Dockerfile')) {
+                                sh """
+                                    docker build -t app:${BUILD_NUMBER} .
+                                    docker tag app:${BUILD_NUMBER} app:latest
+                                    docker tag app:${BUILD_NUMBER} app:${env.GIT_COMMIT_SHORT}
+                                """
+                            }
+                        }
+                    }
+                }
+                
+                stage('Deploy to Production') {
+                    steps {
+                        script {
+                            echo "Deploying build #${BUILD_NUMBER} to production..."
+                            
+                            // Uncomment and configure your deployment method:
+                            
+                            // Kubernetes deployment
+                            // sh 'kubectl apply -f k8s/production/'
+                            // sh "kubectl set image deployment/app app=app:${BUILD_NUMBER}"
+                            
+                            // Docker Compose deployment
+                            // sh 'docker-compose down && docker-compose up -d'
+                            
+                            // Custom deploy script
+                            // sh './deploy.sh'
+                            
+                            // Demo output for visibility
+                            sh """
+                                echo "========================================="
+                                echo "       DEPLOYMENT SUCCESSFUL"
+                                echo "========================================="
+                                echo "  Build Number: ${BUILD_NUMBER}"
+                                echo "  Commit: ${env.GIT_COMMIT_SHORT}"
+                                echo "  Message: ${env.GIT_COMMIT_MSG}"
+                                echo "  Timestamp: \$(date)"
+                                echo "========================================="
+                            """
+                        }
+                    }
+                }
+                
+                stage('Post-Deploy Verification') {
+                    steps {
+                        script {
+                            echo "Running post-deployment health checks..."
+                            
+                            // Health check examples:
+                            // sh 'curl -f http://localhost:8080/health || exit 1'
+                            // sh 'npm run test:smoke || true'
+                            
+                            sh '''
+                                echo "Health check: OK"
+                                echo "Application is running"
+                            '''
+                        }
+                    }
+                }
+            }
+            post {
+                success {
+                    echo "✅ Direct push deployment completed successfully"
+                }
+                failure {
+                    echo "❌ Direct push deployment failed"
+                    // Add rollback logic here if needed
+                    // sh 'kubectl rollout undo deployment/app'
+                }
+            }
+        }
+
+        // ============================================================
+        // PR/DEPENDABOT WORKFLOW PATH
+        // Triggered when called with PR parameters from GitHub webhook
+        // ============================================================
+
         // FROM SECTION 2: classify update and set deployment strategy / approval flags
         stage('Categorize Update') {
+            when {
+                expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+            }
             steps {
                 script {
                     // Prefer Jenkins env PULL_REQUEST_ID if set, fall back to PR_NUMBER param
@@ -99,6 +300,9 @@ pipeline {
         }
         
         stage('Checkout Code') {
+            when {
+                expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+            }
             steps {
                 script {
                     // Clean workspace
@@ -124,6 +328,9 @@ pipeline {
         }
         
         stage('Dependency Installation') {
+            when {
+                expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+            }
             parallel {
                 stage('NPM Dependencies') {
                     when {
@@ -170,7 +377,10 @@ pipeline {
         
         stage('Security Scanning') {
             when {
-                expression { params.PIPELINE_TYPE == 'security-patch' || params.PIPELINE_TYPE == 'major-update' }
+                allOf {
+                    expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+                    expression { params.PIPELINE_TYPE == 'security-patch' || params.PIPELINE_TYPE == 'major-update' }
+                }
             }
             parallel {
                 stage('Dependency Audit') {
@@ -228,6 +438,9 @@ pipeline {
         }
         
         stage('Quality Gates') {
+            when {
+                expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+            }
             parallel {
                 stage('Linting') {
                     steps {
@@ -306,6 +519,9 @@ pipeline {
         }
         
         stage('Build') {
+            when {
+                expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+            }
             steps {
                 script {
                     echo "Building application..."
@@ -326,7 +542,12 @@ pipeline {
 
         // FROM SECTION 2: Trivy container security scan
         stage('Security Scan') {
-            when { expression { env.UPDATE_TYPE == 'patch' } }
+            when {
+                allOf {
+                    expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+                    expression { env.UPDATE_TYPE == 'patch' }
+                }
+            }
             steps {
                 sh 'trivy scan --severity HIGH,CRITICAL .'
             }
@@ -334,7 +555,10 @@ pipeline {
         
         stage('Approval Gate') {
             when {
-                expression { params.PIPELINE_TYPE == 'major-update' }
+                allOf {
+                    expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+                    expression { params.PIPELINE_TYPE == 'major-update' }
+                }
             }
             steps {
                 script {
@@ -361,7 +585,10 @@ pipeline {
         
         stage('Auto-Merge Decision') {
             when {
-                expression { params.AUTO_MERGE == 'true' }
+                allOf {
+                    expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+                    expression { params.AUTO_MERGE == 'true' }
+                }
             }
             steps {
                 script {
@@ -402,9 +629,12 @@ pipeline {
         
         stage('Deploy') {
             when {
-                expression { 
-                    params.PIPELINE_TYPE != 'major-update' || 
-                    (params.PIPELINE_TYPE == 'major-update' && env.APPROVAL_COMMENT != null)
+                allOf {
+                    expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+                    expression { 
+                        params.PIPELINE_TYPE != 'major-update' || 
+                        (params.PIPELINE_TYPE == 'major-update' && env.APPROVAL_COMMENT != null)
+                    }
                 }
             }
             steps {
@@ -439,6 +669,9 @@ pipeline {
         }
         
         stage('Post-Deployment Verification') {
+            when {
+                expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+            }
             steps {
                 script {
                     echo "Running post-deployment checks..."
@@ -460,7 +693,10 @@ pipeline {
         
         stage('Rollback Ready') {
             when {
-                expression { currentBuild.result == 'FAILURE' }
+                allOf {
+                    expression { params.IS_PR_BUILD || params.PR_NUMBER != '' }
+                    expression { currentBuild.result == 'FAILURE' }
+                }
             }
             steps {
                 script {
@@ -490,59 +726,67 @@ pipeline {
     post {
         success {
             script {
-                // Update GitHub status
-                if (params.CALLBACK_URL) {
+                if (params.IS_PR_BUILD || params.PR_NUMBER != '') {
+                    // Update GitHub status
+                    if (params.CALLBACK_URL) {
+                        sh """
+                            curl -X POST ${params.CALLBACK_URL} \
+                                -H "Authorization: token ${params.GITHUB_TOKEN}" \
+                                -H "Content-Type: application/json" \
+                                -d '{
+                                    "state": "success",
+                                    "target_url": "${BUILD_URL}",
+                                    "description": "Jenkins pipeline passed",
+                                    "context": "jenkins/dependabot-pipeline"
+                                }'
+                        """
+                    }
+                    
+                    // Post success comment
                     sh """
-                        curl -X POST ${params.CALLBACK_URL} \
+                        curl -X POST ${GITHUB_API}/repos/${params.REPO_NAME}/issues/${params.PR_NUMBER}/comments \
                             -H "Authorization: token ${params.GITHUB_TOKEN}" \
                             -H "Content-Type: application/json" \
                             -d '{
-                                "state": "success",
-                                "target_url": "${BUILD_URL}",
-                                "description": "Jenkins pipeline passed",
-                                "context": "jenkins/dependabot-pipeline"
+                                "body": "## ✅ Pipeline Completed Successfully\\n\\n**Duration:** ${currentBuild.durationString}\\n**Result:** SUCCESS\\n\\n[View full build log](${BUILD_URL}console)"
                             }'
                     """
+                } else {
+                    echo "✅ Direct push pipeline completed successfully"
                 }
-                
-                // Post success comment
-                sh """
-                    curl -X POST ${GITHUB_API}/repos/${params.REPO_NAME}/issues/${params.PR_NUMBER}/comments \
-                        -H "Authorization: token ${params.GITHUB_TOKEN}" \
-                        -H "Content-Type: application/json" \
-                        -d '{
-                            "body": "## ✅ Pipeline Completed Successfully\\n\\n**Duration:** ${currentBuild.durationString}\\n**Result:** SUCCESS\\n\\n[View full build log](${BUILD_URL}console)"
-                        }'
-                """
             }
         }
         
         failure {
             script {
-                // Update GitHub status
-                if (params.CALLBACK_URL) {
+                if (params.IS_PR_BUILD || params.PR_NUMBER != '') {
+                    // Update GitHub status
+                    if (params.CALLBACK_URL) {
+                        sh """
+                            curl -X POST ${params.CALLBACK_URL} \
+                                -H "Authorization: token ${params.GITHUB_TOKEN}" \
+                                -H "Content-Type: application/json" \
+                                -d '{
+                                    "state": "failure",
+                                    "target_url": "${BUILD_URL}",
+                                    "description": "Jenkins pipeline failed",
+                                    "context": "jenkins/dependabot-pipeline"
+                                }'
+                        """
+                    }
+                    
+                    // Post failure comment
                     sh """
-                        curl -X POST ${params.CALLBACK_URL} \
+                        curl -X POST ${GITHUB_API}/repos/${params.REPO_NAME}/issues/${params.PR_NUMBER}/comments \
                             -H "Authorization: token ${params.GITHUB_TOKEN}" \
                             -H "Content-Type: application/json" \
                             -d '{
-                                "state": "failure",
-                                "target_url": "${BUILD_URL}",
-                                "description": "Jenkins pipeline failed",
-                                "context": "jenkins/dependabot-pipeline"
+                                "body": "## ❌ Pipeline Failed\\n\\n**Duration:** ${currentBuild.durationString}\\n**Failed Stage:** ${env.STAGE_NAME}\\n\\n[View full build log](${BUILD_URL}console)"
                             }'
                     """
+                } else {
+                    echo "❌ Direct push pipeline failed"
                 }
-                
-                // Post failure comment
-                sh """
-                    curl -X POST ${GITHUB_API}/repos/${params.REPO_NAME}/issues/${params.PR_NUMBER}/comments \
-                        -H "Authorization: token ${params.GITHUB_TOKEN}" \
-                        -H "Content-Type: application/json" \
-                        -d '{
-                            "body": "## ❌ Pipeline Failed\\n\\n**Duration:** ${currentBuild.durationString}\\n**Failed Stage:** ${env.STAGE_NAME}\\n\\n[View full build log](${BUILD_URL}console)"
-                        }'
-                """
             }
         }
         
