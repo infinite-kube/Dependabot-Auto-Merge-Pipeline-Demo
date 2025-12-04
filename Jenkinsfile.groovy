@@ -93,8 +93,13 @@ pipeline {
                     steps {
                         checkout scm
                         script {
-                            env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                            env.GIT_COMMIT_MSG = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                            if (isUnix()) {
+                                env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                                env.GIT_COMMIT_MSG = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                            } else {
+                                env.GIT_COMMIT_SHORT = bat(script: '@git rev-parse --short HEAD', returnStdout: true).trim()
+                                env.GIT_COMMIT_MSG = bat(script: '@git log -1 --pretty=%%B', returnStdout: true).trim()
+                            }
                             echo "Commit: ${env.GIT_COMMIT_SHORT}"
                             echo "Message: ${env.GIT_COMMIT_MSG}"
                         }
@@ -200,29 +205,37 @@ pipeline {
                         script {
                             echo "Deploying build #${BUILD_NUMBER} to production..."
                             
-                            // Uncomment and configure your deployment method:
+                            if (isUnix()) {
+                                // Linux/Mac deployment
+                                sh 'chmod +x deploy.sh && ./deploy.sh'
+                            } else {
+                                // Windows deployment using docker-compose
+                                bat 'docker-compose down 2>nul || echo "No existing containers"'
+                                bat 'docker-compose up -d --build'
+                            }
                             
-                            // Kubernetes deployment
-                            // sh 'kubectl apply -f k8s/production/'
-                            // sh "kubectl set image deployment/app app=app:${BUILD_NUMBER}"
-                            
-                            // Docker Compose deployment
-                            // sh 'docker-compose down && docker-compose up -d'
-                            
-                            // Custom deploy script
-                            // sh './deploy.sh'
-                            
-                            // Demo output for visibility
-                            sh """
-                                echo "========================================="
-                                echo "       DEPLOYMENT SUCCESSFUL"
-                                echo "========================================="
-                                echo "  Build Number: ${BUILD_NUMBER}"
-                                echo "  Commit: ${env.GIT_COMMIT_SHORT}"
-                                echo "  Message: ${env.GIT_COMMIT_MSG}"
-                                echo "  Timestamp: \$(date)"
-                                echo "========================================="
-                            """
+                            // Log deployment info
+                            if (isUnix()) {
+                                sh """
+                                    echo "========================================="
+                                    echo "       DEPLOYMENT COMPLETE"
+                                    echo "========================================="
+                                    echo "  Build Number: ${BUILD_NUMBER}"
+                                    echo "  Commit: ${env.GIT_COMMIT_SHORT}"
+                                    echo "  URL: http://localhost:8080"
+                                    echo "========================================="
+                                """
+                            } else {
+                                bat """
+                                    @echo =========================================
+                                    @echo        DEPLOYMENT COMPLETE
+                                    @echo =========================================
+                                    @echo   Build Number: ${BUILD_NUMBER}
+                                    @echo   Commit: ${env.GIT_COMMIT_SHORT}
+                                    @echo   URL: http://localhost:8080
+                                    @echo =========================================
+                                """
+                            }
                         }
                     }
                 }
@@ -232,14 +245,34 @@ pipeline {
                         script {
                             echo "Running post-deployment health checks..."
                             
-                            // Health check examples:
-                            // sh 'curl -f http://localhost:8080/health || exit 1'
-                            // sh 'npm run test:smoke || true'
+                            // Wait for app to be ready
+                            sleep(3)
                             
-                            sh '''
-                                echo "Health check: OK"
-                                echo "Application is running"
-                            '''
+                            if (isUnix()) {
+                                sh '''
+                                    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 || echo "000")
+                                    
+                                    if [ "$HTTP_STATUS" = "200" ]; then
+                                        echo "✅ Health check passed - HTTP 200"
+                                    else
+                                        echo "❌ Health check failed - HTTP $HTTP_STATUS"
+                                        exit 1
+                                    fi
+                                '''
+                            } else {
+                                bat '''
+                                    @echo off
+                                    curl -s -o nul -w "%%{http_code}" http://localhost:8080 > status.txt
+                                    set /p HTTP_STATUS=<status.txt
+                                    del status.txt
+                                    if "%HTTP_STATUS%"=="200" (
+                                        echo Health check passed - HTTP 200
+                                    ) else (
+                                        echo Health check failed - HTTP %HTTP_STATUS%
+                                        exit /b 1
+                                    )
+                                '''
+                            }
                         }
                     }
                 }
