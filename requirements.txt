@@ -20,7 +20,7 @@ scikit-learn==1.7.2
 requests==2.32.5
 httpx==0.28.1
 aiohttp==3.13.2
-urllib3==2.5.0
+urllib3==2.6.0
 
 # Authentication & Security
 PyJWT==2.10.1
