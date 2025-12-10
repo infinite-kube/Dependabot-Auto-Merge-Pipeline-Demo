@@ -1,7 +1,7 @@
 # Web Framework
 Django==6.0
 Flask==3.1.2
-FastAPI==0.124.0
+FastAPI==0.124.2
 uvicorn==0.38.0
 
 # Database
@@ -54,8 +54,8 @@ ipdb==0.13.13
 pre-commit==4.5.0
 
 # AWS SDK
-boto3==1.42.5
-botocore==1.42.5
+boto3==1.42.7
+botocore==1.42.7
 
 # Monitoring
 sentry-sdk==2.47.0
