@@ -32,7 +32,7 @@
     "lodash": "4.17.21",
     "moment": "2.30.1",
     "dotenv": "17.2.3",
-    "winston": "3.18.3",
+    "winston": "3.19.0",
     "cors": "2.8.5",
     "helmet": "8.1.0",
     "compression": "1.8.1",
