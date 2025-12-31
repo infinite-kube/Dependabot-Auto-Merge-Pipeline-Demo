@@ -66,5 +66,5 @@ celery==5.6.1
 redis==7.1.0
 
 # Documentation
-Sphinx==9.0.4
+Sphinx==9.1.0
 mkdocs==1.6.1
