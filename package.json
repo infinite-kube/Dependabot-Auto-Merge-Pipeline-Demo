@@ -36,7 +36,7 @@
     "cors": "2.8.5",
     "helmet": "8.1.0",
     "compression": "1.8.1",
-    "body-parser": "2.2.1",
+    "body-parser": "2.2.2",
     "uuid": "13.0.0",
     "jsonwebtoken": "9.0.3",
     "bcrypt": "6.0.0",
