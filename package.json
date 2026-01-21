@@ -29,7 +29,7 @@
   "dependencies": {
     "express": "5.2.1",
     "axios": "1.13.2",
-    "lodash": "4.17.21",
+    "lodash": "4.17.23",
     "moment": "2.30.1",
     "dotenv": "17.2.3",
     "winston": "3.19.0",
