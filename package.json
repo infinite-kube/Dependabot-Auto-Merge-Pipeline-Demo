@@ -33,7 +33,7 @@
     "moment": "2.30.1",
     "dotenv": "17.2.3",
     "winston": "3.19.0",
-    "cors": "2.8.5",
+    "cors": "2.8.6",
     "helmet": "8.1.0",
     "compression": "1.8.1",
     "body-parser": "2.2.2",
