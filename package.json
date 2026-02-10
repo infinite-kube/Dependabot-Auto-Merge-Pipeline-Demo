@@ -87,7 +87,7 @@
     "marked": "17.0.1",
     "serialize-javascript": "7.0.2",
     "elliptic": "6.6.1",
-    "ssri": "13.0.0"
+    "ssri": "13.0.1"
   },
   "engines": {
     "node": ">=16.0.0",
