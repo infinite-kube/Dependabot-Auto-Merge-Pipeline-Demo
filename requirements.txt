@@ -46,7 +46,7 @@ black==26.1.0
 flake8==7.3.0
 mypy==1.19.1
 isort==8.0.0
-pylint==4.0.4
+pylint==4.0.5
 
 # Development Tools
 ipython==9.10.0
@@ -54,8 +54,8 @@ ipdb==0.13.13
 pre-commit==4.5.1
 
 # AWS SDK
-boto3==1.42.53
-botocore==1.42.53
+boto3==1.42.54
+botocore==1.42.54
 
 # Monitoring
 sentry-sdk==2.53.0
