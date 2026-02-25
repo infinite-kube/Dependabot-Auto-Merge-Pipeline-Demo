@@ -1,13 +1,13 @@
 # Web Framework
 Django==6.0.2
 Flask==3.1.3
-FastAPI==0.133.0
+FastAPI==0.133.1
 uvicorn==0.41.0
 
 # Database
 psycopg2-binary==2.9.11
 pymongo==4.16.0
-redis==7.2.0
+redis==7.2.1
 SQLAlchemy==2.0.47
 
 # Data Processing
@@ -54,8 +54,8 @@ ipdb==0.13.13
 pre-commit==4.5.1
 
 # AWS SDK
-boto3==1.42.56
-botocore==1.42.56
+boto3==1.42.57
+botocore==1.42.57
 
 # Monitoring
 sentry-sdk==2.53.0
@@ -63,7 +63,7 @@ prometheus-client==0.24.1
 
 # Task Queue
 celery==5.6.2
-redis==7.2.0
+redis==7.2.1
 
 # Documentation
 Sphinx==9.1.0
