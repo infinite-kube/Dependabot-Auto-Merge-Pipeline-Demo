@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "express": "5.2.1",
-    "axios": "1.13.5",
+    "axios": "1.13.6",
     "lodash": "4.17.23",
     "moment": "2.30.1",
     "dotenv": "17.3.1",
