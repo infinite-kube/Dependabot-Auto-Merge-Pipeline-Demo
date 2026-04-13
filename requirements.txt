@@ -44,7 +44,7 @@ responses==0.26.0
 # Linting and Formatting
 black==26.3.1
 flake8==7.3.0
-mypy==1.20.0
+mypy==1.20.1
 isort==8.0.1
 pylint==4.0.5
 
@@ -54,8 +54,8 @@ ipdb==0.13.13
 pre-commit==4.5.1
 
 # AWS SDK
-boto3==1.42.87
-botocore==1.42.87
+boto3==1.42.89
+botocore==1.42.89
 
 # Monitoring
 sentry-sdk==2.57.0
