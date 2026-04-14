@@ -81,7 +81,7 @@
     "@babel/preset-env": "7.29.2",
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
-    "npm-check-updates": "20.0.2",
+    "npm-check-updates": "21.0.0",
     "handlebars": "4.7.9",
     "highlight.js": "11.11.1",
     "marked": "18.0.0",
