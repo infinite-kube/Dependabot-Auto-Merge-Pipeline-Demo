@@ -51,7 +51,7 @@ pylint==4.0.5
 # Development Tools
 ipython==9.12.0
 ipdb==0.13.13
-pre-commit==4.5.1
+pre-commit==4.6.0
 
 # AWS SDK
 boto3==1.42.93
