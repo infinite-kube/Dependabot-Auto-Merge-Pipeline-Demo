@@ -84,7 +84,7 @@
     "npm-check-updates": "22.0.1",
     "handlebars": "4.7.9",
     "highlight.js": "11.11.1",
-    "marked": "18.0.2",
+    "marked": "18.0.3",
     "serialize-javascript": "7.0.5",
     "elliptic": "6.6.1",
     "ssri": "13.0.1"
