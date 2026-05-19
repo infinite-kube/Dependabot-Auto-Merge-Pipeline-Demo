@@ -80,7 +80,7 @@
     "@babel/core": "7.29.0",
     "@babel/preset-env": "7.29.5",
     "husky": "9.1.7",
-    "lint-staged": "17.0.4",
+    "lint-staged": "17.0.5",
     "npm-check-updates": "22.2.0",
     "handlebars": "4.7.9",
     "highlight.js": "11.11.1",
