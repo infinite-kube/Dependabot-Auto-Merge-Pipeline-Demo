@@ -54,8 +54,8 @@ ipdb==0.13.13
 pre-commit==4.6.0
 
 # AWS SDK
-boto3==1.43.16
-botocore==1.43.16
+boto3==1.43.17
+botocore==1.43.17
 
 # Monitoring
 sentry-sdk==2.60.0
