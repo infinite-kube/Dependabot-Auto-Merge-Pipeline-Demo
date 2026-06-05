@@ -49,13 +49,13 @@ isort==8.0.1
 pylint==4.0.5
 
 # Development Tools
-ipython==9.14.0
+ipython==9.14.1
 ipdb==0.13.13
 pre-commit==4.6.0
 
 # AWS SDK
-boto3==1.43.23
-botocore==1.43.23
+boto3==1.43.24
+botocore==1.43.24
 
 # Monitoring
 sentry-sdk==2.61.1
