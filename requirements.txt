@@ -24,7 +24,7 @@ urllib3==2.7.0
 
 # Authentication & Security
 PyJWT==2.13.0
-cryptography==48.0.1
+cryptography==49.0.0
 bcrypt==5.0.0
 python-jose==3.5.0
 
