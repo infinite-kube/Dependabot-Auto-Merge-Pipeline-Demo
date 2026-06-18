@@ -78,7 +78,7 @@
     "webpack-cli": "7.0.3",
     "babel-loader": "10.1.1",
     "@babel/core": "8.0.1",
-    "@babel/preset-env": "8.0.1",
+    "@babel/preset-env": "8.0.2",
     "husky": "9.1.7",
     "lint-staged": "17.0.7",
     "npm-check-updates": "22.2.3",
