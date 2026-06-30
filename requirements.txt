@@ -58,7 +58,7 @@ boto3==1.43.37
 botocore==1.43.37
 
 # Monitoring
-sentry-sdk==2.63.0
+sentry-sdk==2.64.0
 prometheus-client==0.25.0
 
 # Task Queue
