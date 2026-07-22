@@ -54,11 +54,11 @@ ipdb==0.13.13
 pre-commit==4.6.1
 
 # AWS SDK
-boto3==1.43.53
-botocore==1.43.53
+boto3==1.43.54
+botocore==1.43.54
 
 # Monitoring
-sentry-sdk==2.66.0
+sentry-sdk==2.66.1
 prometheus-client==0.25.0
 
 # Task Queue
