@@ -12,7 +12,7 @@ SQLAlchemy==2.0.51
 
 # Data Processing
 pandas==3.0.5
-numpy==2.5.1
+numpy==2.5.2
 scipy==1.18.0
 scikit-learn==1.9.0
 
@@ -46,7 +46,7 @@ black==26.5.1
 flake8==7.3.0
 mypy==2.3.0
 isort==8.0.1
-pylint==4.0.6
+pylint==4.0.7
 
 # Development Tools
 ipython==9.16.1
