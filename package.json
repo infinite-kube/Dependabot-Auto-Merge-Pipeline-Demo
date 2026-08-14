@@ -41,7 +41,7 @@
     "jsonwebtoken": "9.0.3",
     "bcrypt": "6.0.0",
     "mongoose": "9.9.2",
-    "redis": "6.2.0",
+    "redis": "6.2.1",
     "pg": "8.23.0",
     "mysql2": "3.23.3",
     "sequelize": "6.37.8",
