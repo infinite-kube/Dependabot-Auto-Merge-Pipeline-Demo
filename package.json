@@ -83,7 +83,7 @@
     "lint-staged": "17.3.0",
     "npm-check-updates": "23.0.2",
     "handlebars": "4.7.9",
-    "highlight.js": "11.11.1",
+    "highlight.js": "11.11.2",
     "marked": "18.0.9",
     "serialize-javascript": "7.1.0",
     "elliptic": "6.6.1",
