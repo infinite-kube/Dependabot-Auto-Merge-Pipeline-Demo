@@ -8,7 +8,7 @@ uvicorn==0.52.1
 psycopg2-binary==2.9.12
 pymongo==4.17.0
 redis==8.1.0
-SQLAlchemy==2.0.51
+SQLAlchemy==2.0.52
 
 # Data Processing
 pandas==3.0.5
@@ -51,11 +51,11 @@ pylint==4.0.7
 # Development Tools
 ipython==9.16.1
 ipdb==0.13.13
-pre-commit==4.6.1
+pre-commit==4.6.2
 
 # AWS SDK
-boto3==1.43.68
-botocore==1.43.68
+boto3==1.43.69
+botocore==1.43.69
 
 # Monitoring
 sentry-sdk==2.67.1
