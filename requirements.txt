@@ -44,7 +44,7 @@ responses==0.26.2
 # Linting and Formatting
 black==26.5.1
 flake8==7.3.0
-mypy==2.3.0
+mypy==2.3.1
 isort==8.0.1
 pylint==4.0.7
 
