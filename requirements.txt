@@ -13,7 +13,7 @@ SQLAlchemy==2.0.52
 # Data Processing
 pandas==3.0.5
 numpy==2.5.2
-scipy==1.18.0
+scipy==1.18.1
 scikit-learn==1.9.0
 
 # API and HTTP
