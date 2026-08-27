@@ -43,7 +43,7 @@
     "mongoose": "9.9.3",
     "redis": "6.2.1",
     "pg": "8.23.0",
-    "mysql2": "3.23.4",
+    "mysql2": "3.24.2",
     "sequelize": "6.37.8",
     "passport": "0.7.0",
     "passport-jwt": "4.0.1",
