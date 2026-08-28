@@ -40,7 +40,7 @@
     "uuid": "14.0.2",
     "jsonwebtoken": "9.0.3",
     "bcrypt": "6.0.0",
-    "mongoose": "9.9.3",
+    "mongoose": "9.9.4",
     "redis": "6.2.1",
     "pg": "8.23.0",
     "mysql2": "3.24.2",
