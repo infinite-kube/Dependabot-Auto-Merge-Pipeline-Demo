@@ -2,13 +2,13 @@
 Django==6.1.1
 Flask==3.1.3
 FastAPI==0.141.1
-uvicorn==0.53.0
+uvicorn==0.54.0
 
 # Database
 psycopg2-binary==2.9.13
 pymongo==4.18.1
 redis==8.1.0
-SQLAlchemy==2.0.54
+SQLAlchemy==2.1.1
 
 # Data Processing
 pandas==3.0.6
@@ -23,7 +23,7 @@ aiohttp==3.14.3
 urllib3==2.8.0
 
 # Authentication & Security
-PyJWT==2.14.0
+PyJWT==2.15.0
 cryptography==50.0.1
 bcrypt==5.0.0
 python-jose==3.5.0
@@ -32,7 +32,7 @@ python-jose==3.5.0
 python-dotenv==1.2.3
 pydantic==2.13.5
 python-dateutil==2.9.0.post0
-pytz==2026.3.post1
+pytz==2026.4
 
 # Testing
 pytest==9.1.1
@@ -43,7 +43,7 @@ responses==0.26.3
 
 # Linting and Formatting
 black==26.5.1
-flake8==7.3.0
+flake8==7.4.1
 mypy==2.3.1
 isort==9.0.1
 pylint==4.0.8
