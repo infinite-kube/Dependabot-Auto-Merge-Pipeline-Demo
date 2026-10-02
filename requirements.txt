@@ -1,7 +1,7 @@
 # Web Framework
 Django==6.1.1
 Flask==3.1.3
-FastAPI==0.141.1
+FastAPI==0.142.0
 uvicorn==0.54.0
 
 # Database
@@ -46,7 +46,7 @@ black==26.5.1
 flake8==7.4.1
 mypy==2.3.1
 isort==9.0.2
-pylint==4.0.9
+pylint==4.1.1
 
 # Development Tools
 ipython==9.17.1
