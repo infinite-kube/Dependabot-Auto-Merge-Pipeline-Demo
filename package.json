@@ -74,7 +74,7 @@
     "jest": "30.5.2",
     "supertest": "7.3.1",
     "nodemon": "3.1.14",
-    "webpack": "5.111.1",
+    "webpack": "5.112.0",
     "webpack-cli": "7.2.3",
     "babel-loader": "10.1.1",
     "@babel/core": "8.0.7",
