@@ -6,7 +6,7 @@ uvicorn==0.54.0
 
 # Database
 psycopg2-binary==2.9.13
-pymongo==4.20.0
+pymongo==4.20.1
 redis==8.1.0
 SQLAlchemy==2.1.9
 
@@ -30,7 +30,7 @@ python-jose==3.5.0
 
 # Utilities
 python-dotenv==1.2.4
-pydantic==2.14.3
+pydantic==2.14.4
 python-dateutil==4.0.0
 pytz==2026.6
 
@@ -54,8 +54,8 @@ ipdb==0.13.13
 pre-commit==4.7.0
 
 # AWS SDK
-boto3==1.44.5
-botocore==1.44.5
+boto3==1.44.8
+botocore==1.44.8
 
 # Monitoring
 sentry-sdk==2.75.0
