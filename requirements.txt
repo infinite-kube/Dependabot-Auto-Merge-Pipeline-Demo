@@ -7,7 +7,7 @@ uvicorn==0.54.0
 # Database
 psycopg2-binary==2.9.13
 pymongo==4.20.1
-redis==8.1.0
+redis==8.2.0
 SQLAlchemy==2.1.9
 
 # Data Processing
@@ -49,7 +49,7 @@ isort==9.0.2
 pylint==4.1.4
 
 # Development Tools
-ipython==9.18.1
+ipython==9.19.1
 ipdb==0.13.13
 pre-commit==4.7.0
 
@@ -63,7 +63,7 @@ prometheus-client==0.26.0
 
 # Task Queue
 celery==5.7.0
-redis==8.1.0
+redis==8.2.0
 
 # Documentation
 Sphinx==9.2.0
